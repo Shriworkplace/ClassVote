@@ -2,15 +2,15 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "https://classvote-backend.onrender.com/api/$1"
+            "destination": "https://classvote-kgdg.onrender.com/api/$1"
         },
         {
             "source": "/uploads/(.*)",
-            "destination": "https://classvote-backend.onrender.com/uploads/$1"
+            "destination": "https://classvote-kgdg.onrender.com/uploads/$1"
         },
         {
             "source": "/socket.io/(.*)",
-            "destination": "https://classvote-backend.onrender.com/socket.io/$1"
+            "destination": "https://classvote-kgdg.onrender.com/socket.io/$1"
         },
         {
             "source": "/(.*)",
