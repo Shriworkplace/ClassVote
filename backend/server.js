@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -47,6 +48,11 @@ mongoose.connect(MONGODB_URI)
 const apiRoutes = require('./routes/api')(io);
 const adminRoutes = require('./routes/admin')(io);
 
+// Health check endpoint for uptime monitoring (fast, no database)
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 
@@ -60,6 +66,16 @@ if (process.env.SERVE_FRONTEND === 'true') {
     app.use((req, res) => {
         res.send('API is running. If you are looking for the frontend, it is hosted separately.');
     });
+}
+
+// Keep-alive ping to prevent Render free-tier from sleeping
+if (process.env.RENDER_EXTERNAL_URL) {
+    console.log('Keep-alive ping scheduled every 14 minutes for:', process.env.RENDER_EXTERNAL_URL);
+    setInterval(() => {
+        https.get(`${process.env.RENDER_EXTERNAL_URL}/health`).on('error', (err) => {
+            console.error('Keep-alive ping failed:', err.message);
+        });
+    }, 14 * 60 * 1000); // 14 minutes
 }
 
 const PORT = process.env.PORT || 3000;
