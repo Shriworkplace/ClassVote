@@ -29,8 +29,8 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 // app.use(mongoSanitize());
 app.use(cookieParser());
 
-// Serve static files from the React app if in production
-if (process.env.NODE_ENV === 'production') {
+// Serve static files from the React app if SERVE_FRONTEND is set to true
+if (process.env.SERVE_FRONTEND === 'true') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));
 }
 
@@ -52,13 +52,13 @@ app.use('/api', apiRoutes);
 
 
 // Catch-all route to serve the React app for any unknown paths (handles React Router)
-if (process.env.NODE_ENV === 'production') {
+if (process.env.SERVE_FRONTEND === 'true') {
     app.use((req, res) => {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });
 } else {
     app.use((req, res) => {
-        res.send('Running in development mode. Please use the Vite development server (port 5173) for the frontend.');
+        res.send('API is running. If you are looking for the frontend, it is hosted separately.');
     });
 }
 
