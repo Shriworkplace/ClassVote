@@ -161,8 +161,8 @@ module.exports = function(io) {
                 return res.status(403).json({ error: 'This email has already been used to vote.' });
             }
 
-            // Record the voter
-            const newVoter = new Voter({ name: cleanName || eligible.name, email: cleanEmail });
+            // Record the voter using the official roster name
+            const newVoter = new Voter({ name: eligible.name, email: cleanEmail });
             await newVoter.save();
 
             // Insert all votes

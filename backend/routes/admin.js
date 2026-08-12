@@ -212,7 +212,7 @@ module.exports = function(io) {
         }
     });
 
-    // Manage Roster (replace entirely for simplicity)
+    // Manage Roster (append/update existing)
     router.post('/roster', writeLimiter, async (req, res) => {
         try {
             const { voters } = req.body ?? {}; // Array of { name, email }
@@ -220,7 +220,6 @@ module.exports = function(io) {
                 return res.status(400).json({ error: 'Invalid data format' });
             }
 
-            await EligibleVoter.deleteMany({});
             const validVoters = [];
             const seenEmails = new Set();
 
@@ -240,7 +239,17 @@ module.exports = function(io) {
                 validVoters.push({ name, email });
             }
 
-            await EligibleVoter.insertMany(validVoters);
+            const bulkOps = validVoters.map(v => ({
+                updateOne: {
+                    filter: { email: v.email },
+                    update: { $set: { name: v.name } },
+                    upsert: true
+                }
+            }));
+            
+            if (bulkOps.length > 0) {
+                await EligibleVoter.bulkWrite(bulkOps);
+            }
             
             res.json({ success: true, count: validVoters.length });
         } catch (err) {
@@ -248,7 +257,7 @@ module.exports = function(io) {
         }
     });
 
-    // Upload Roster via CSV
+    // Upload Roster via CSV (appends to existing)
     router.post('/upload-roster', writeLimiter, upload.single('file'), async (req, res) => {
         try {
             if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -259,8 +268,17 @@ module.exports = function(io) {
                 return res.status(400).json({ error: 'No valid voters found in file. Ensure the CSV has Name and Email columns.' });
             }
 
-            await EligibleVoter.deleteMany({});
-            await EligibleVoter.insertMany(validVoters);
+            const bulkOps = validVoters.map(v => ({
+                updateOne: {
+                    filter: { email: v.email },
+                    update: { $set: { name: v.name } },
+                    upsert: true
+                }
+            }));
+            
+            if (bulkOps.length > 0) {
+                await EligibleVoter.bulkWrite(bulkOps);
+            }
             
             res.json({ success: true, count: validVoters.length });
         } catch (err) {
