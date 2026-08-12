@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 font-sans antialiased min-h-screen relative overflow-x-hidden;
+    background: radial-gradient(circle at 15% 50%, rgba(6, 182, 212, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.15), transparent 25%),
+                #0f172a;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl;
+  }
+  
+  .glass-input {
+    @apply w-full p-4 bg-slate-900/60 border border-white/10 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all placeholder-slate-400;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:-translate-y-0.5 transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-cyan-500/30;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4;
+}
+
+/* 3D Ballot Box Animation Styles */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
