@@ -27,7 +27,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions()));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
-// app.use(mongoSanitize());
+app.use(mongoSanitize());
 app.use(cookieParser());
 
 // Serve static files from the React app if SERVE_FRONTEND is set to true
