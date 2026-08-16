@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
-import { Trophy, Medal, Loader2, Info, Play } from 'lucide-react';
+import { Trophy, Medal, Loader2, Info, Play, X } from 'lucide-react';
+import Confetti from 'react-confetti';
 
 // A small component to animate the number counting up
 const Counter = ({ from, to, duration, delay }) => {
@@ -40,6 +41,15 @@ const ResultsPage = () => {
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
   const [hasCounted, setHasCounted] = useState(false);
+  const [winnersRevealed, setWinnersRevealed] = useState(false);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setWindowDimensions({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -91,20 +101,26 @@ const ResultsPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto pb-20">
-      <div className="glass-panel text-center mb-12 relative overflow-hidden">
-        <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent font-heading">
+      <div className="glass-panel text-center mb-12 relative overflow-hidden p-10 md:p-16">
+        <h2 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent font-heading">
           Election Results
         </h2>
-        <p className="text-slate-400 mb-6">Updates automatically in real-time as votes are cast.</p>
+        <p className="text-slate-400 text-lg md:text-xl mb-10">Updates automatically in real-time as votes are cast.</p>
         
         {!hasCounted && (
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setHasCounted(true)}
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-3 mx-auto"
+            onClick={() => {
+              setHasCounted(true);
+              setTimeout(() => {
+                setWinnersRevealed(true);
+                setShowWinnerModal(true);
+              }, 12000); // Wait 12 seconds for suspense
+            }}
+            className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-10 py-4 text-xl rounded-full font-bold shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-4 mx-auto"
           >
-            <Play className="w-5 h-5 fill-white" />
+            <Play className="w-6 h-6 fill-white" />
             Start Vote Count
           </motion.button>
         )}
@@ -112,7 +128,9 @@ const ResultsPage = () => {
 
       <div className="space-y-12">
         {results.map((pos, idx) => {
-          const sortedCandidates = [...pos.candidates].sort((a, b) => b.votes - a.votes);
+          // Sort alphabetically so the display order is stable but hides who is winning
+          const displayCandidates = [...pos.candidates].sort((a, b) => a.name.localeCompare(b.name));
+          const maxVotes = Math.max(...pos.candidates.map(c => c.votes));
           
           return (
             <motion.div
@@ -128,7 +146,7 @@ const ResultsPage = () => {
                   {pos.name}
                 </h3>
                 <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-sm font-medium text-slate-300">
-                  Total Votes: <span className="text-white font-bold ml-1">{hasCounted ? <Counter from={0} to={pos.totalVotes} duration={2000} delay={0} /> : 0}</span>
+                  Total Votes: <span className="text-white font-bold ml-1">{hasCounted ? <Counter from={0} to={pos.totalVotes} duration={6000} delay={0} /> : 0}</span>
                 </div>
               </div>
               
@@ -138,11 +156,13 @@ const ResultsPage = () => {
                      <p className="text-slate-500 font-medium">Awaiting Count Initialization...</p>
                   </div>
                 ) : (
-                  <div className="flex justify-around items-end h-[350px] gap-4 mt-8 px-2 md:px-8">
-                    {sortedCandidates.map((cand, i) => {
+                  <div className="overflow-x-auto pb-4 custom-scrollbar">
+                    <div className="flex justify-around items-end h-[350px] gap-8 mt-8 px-2 md:px-8 min-w-max md:min-w-full">
+                      {displayCandidates.map((cand, i) => {
                       const percentage = pos.totalVotes === 0 ? 0 : Math.round((cand.votes / pos.totalVotes) * 100);
-                      const isFirst = i === 0 && pos.totalVotes > 0;
-                      const animationDelay = i * 0.3; // Stagger the bars
+                      const isWinner = winnersRevealed && cand.votes === maxVotes && pos.totalVotes > 0;
+                      // Stagger the bars significantly more to build tension
+                      const animationDelay = i * 2.0; 
                       
                       return (
                         <div key={cand.candidateId} className="flex flex-col items-center justify-end h-full w-full max-w-[100px] md:max-w-[140px]">
@@ -151,14 +171,14 @@ const ResultsPage = () => {
                           <motion.div 
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: animationDelay + 0.5 }}
+                            transition={{ delay: animationDelay + 1.0 }}
                             className="mb-3 text-center"
                           >
                             <span className="text-2xl font-bold text-white block">
-                              <Counter from={0} to={percentage} duration={1500} delay={animationDelay} />%
+                              <Counter from={0} to={percentage} duration={4000} delay={animationDelay} />%
                             </span>
                             <span className="text-sm text-slate-400 font-medium">
-                              <Counter from={0} to={cand.votes} duration={1500} delay={animationDelay} /> votes
+                              <Counter from={0} to={cand.votes} duration={4000} delay={animationDelay} /> votes
                             </span>
                           </motion.div>
 
@@ -167,9 +187,10 @@ const ResultsPage = () => {
                             <motion.div
                               initial={{ height: "0%" }}
                               animate={{ height: `${percentage}%` }}
-                              transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: animationDelay }}
-                              className={`absolute bottom-0 left-0 w-full rounded-t-2xl ${
-                                isFirst 
+                              // Slow, dramatic easing curve
+                              transition={{ duration: 6, ease: [0.16, 1, 0.3, 1], delay: animationDelay }}
+                              className={`absolute bottom-0 left-0 w-full rounded-t-2xl transition-all duration-1000 ${
+                                isWinner 
                                   ? 'bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.6)]' 
                                   : 'bg-slate-600'
                               }`}
@@ -178,11 +199,13 @@ const ResultsPage = () => {
                           
                           {/* Label */}
                           <div className="mt-4 text-center h-16 flex flex-col items-center w-full">
-                            {isFirst && <Trophy className="w-5 h-5 text-yellow-400 mb-1" />}
-                            {i === 1 && pos.totalVotes > 0 && <Medal className="w-5 h-5 text-slate-400 mb-1" />}
-                            {i === 2 && pos.totalVotes > 0 && <Medal className="w-5 h-5 text-amber-700 mb-1" />}
+                            {isWinner && (
+                              <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring' }}>
+                                <Trophy className="w-6 h-6 text-yellow-400 mb-1 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]" />
+                              </motion.div>
+                            )}
                             
-                            <span className={`font-bold text-sm leading-tight px-1 ${isFirst ? 'text-white' : 'text-slate-300'} text-center line-clamp-2`}>
+                            <span className={`font-bold text-sm leading-tight px-1 transition-colors duration-1000 ${isWinner ? 'text-white' : 'text-slate-300'} text-center line-clamp-2`}>
                               {cand.name}
                             </span>
                           </div>
@@ -190,12 +213,84 @@ const ResultsPage = () => {
                       );
                     })}
                   </div>
+                </div>
                 )}
               </div>
             </motion.div>
           );
         })}
       </div>
+
+      <AnimatePresence>
+        {showWinnerModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <Confetti 
+              width={windowDimensions.width} 
+              height={windowDimensions.height} 
+              recycle={false} 
+              numberOfPieces={600} 
+              gravity={0.15} 
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} 
+              animate={{ scale: 1, y: 0 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto glass-panel p-8 md:p-12 border-cyan-500/50 shadow-[0_0_50px_rgba(6,182,212,0.3)]"
+            >
+              <button 
+                onClick={() => setShowWinnerModal(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors z-10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="text-center mb-10 mt-4">
+                <h2 className="text-5xl md:text-6xl font-extrabold mb-4 bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600 bg-clip-text text-transparent font-heading drop-shadow-lg">
+                  ELECTION WINNERS
+                </h2>
+                <p className="text-slate-300 text-lg md:text-xl">Congratulations to the newly elected candidates!</p>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-8">
+                {results && results.map((pos, idx) => {
+                  const maxVotes = Math.max(...pos.candidates.map(c => c.votes));
+                  const winner = pos.candidates.find(c => c.votes === maxVotes && pos.totalVotes > 0);
+                  if (!winner) return null;
+
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.5 + (idx * 0.2) }}
+                      key={pos.name} 
+                      className="flex flex-col items-center p-8 bg-slate-900/60 rounded-3xl border border-white/10 w-full sm:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1.5rem)]"
+                    >
+                      <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-yellow-500 mb-6 shadow-[0_0_20px_rgba(234,179,8,0.4)]">
+                        {winner.photoUrl ? (
+                          <img src={winner.photoUrl} alt={winner.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">No Photo</div>
+                        )}
+                      </div>
+                      <Trophy className="w-10 h-10 text-yellow-400 mb-3 drop-shadow-md" />
+                      <h3 className="text-2xl font-bold text-white text-center mb-1 leading-tight">{winner.name}</h3>
+                      <p className="text-cyan-400 font-medium text-center">{pos.name}</p>
+                      <p className="text-slate-400 text-sm mt-3">{winner.votes} votes</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

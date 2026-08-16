@@ -378,7 +378,7 @@ const AdminDashboard = () => {
             <h3 className="text-xl font-bold">Election Status</h3>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 text-center">
               <div className="text-sm text-slate-400 mb-2">Voting Portal</div>
               <div className={`text-xl font-bold ${settings.votingOpen ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -400,8 +400,8 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mt-4 flex items-center justify-between">
-            <div className="pr-4">
+          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mt-4 flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-4 text-center sm:text-left">
+            <div className="pr-0 sm:pr-4">
                <div className="text-sm text-slate-400 mb-1">Share Voting Portal</div>
                <div className="text-sm font-mono text-cyan-400 break-all">{window.location.origin}</div>
                <p className="text-xs text-slate-500 mt-2">Display this QR code on a projector or screen so students can scan it and vote instantly.</p>
@@ -420,7 +420,7 @@ const AdminDashboard = () => {
                <Clock className="w-5 h-5 text-cyan-500" />
                <h4 className="font-semibold text-lg">Schedule Window (Overrides Manual)</h4>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div>
                   <label className="block text-sm text-slate-400 mb-1">Start Time</label>
                   <DatePicker 
@@ -576,7 +576,7 @@ const AdminDashboard = () => {
 
       {/* Live Monitor */}
       <div className="glass-panel p-6">
-         <div className="flex justify-between items-center mb-6">
+         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
             <h3 className="text-xl font-bold">Live Admin Monitor</h3>
             <button onClick={loadDashboardData} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm rounded border border-slate-600 transition-colors">
                Refresh Data
@@ -618,7 +618,7 @@ const AdminDashboard = () => {
 
       {/* Vote Logs */}
       <div className="glass-panel p-6 mt-8">
-         <div className="flex justify-between items-center mb-6">
+         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
             <h3 className="text-xl font-bold">Vote Logs</h3>
             <button onClick={handleDownloadCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm rounded border border-slate-600 transition-colors">
                <Download className="w-4 h-4" /> Download CSV
@@ -664,7 +664,7 @@ const AdminDashboard = () => {
       
       {/* Danger Zone */}
       <div className="glass-panel p-6 mt-8 border-red-500/30 bg-red-950/10">
-         <div className="flex justify-between items-center mb-6">
+         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
             <h3 className="text-xl font-bold text-red-400">Danger Zone</h3>
          </div>
          

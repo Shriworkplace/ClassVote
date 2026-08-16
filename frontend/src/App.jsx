@@ -7,13 +7,15 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
+import LandingPage from './pages/LandingPage';
+
 function App() {
   return (
     <Router>
       <Header />
       <main className="container mx-auto px-4 py-8">
         <Routes>
-          <Route path="/" element={<Navigate to="/entry" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/entry" element={<EntryPage />} />
           <Route path="/voting" element={<VotingPage />} />
           <Route path="/results" element={<ResultsPage />} />

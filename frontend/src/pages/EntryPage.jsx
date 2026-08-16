@@ -43,51 +43,51 @@ const EntryPage = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="glass-panel w-full max-w-2xl p-10 md:p-16 relative overflow-hidden"
+        className="glass-panel w-full max-w-md p-8 relative overflow-hidden"
       >
         {/* Decorative background blur */}
-        <div className="absolute -top-20 -right-20 w-56 h-56 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="text-center mb-10 relative z-10">
-          <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 rounded-2xl mx-auto flex items-center justify-center mb-6 border border-cyan-500/30">
-            <LogIn className="w-10 h-10 text-cyan-400" />
+        <div className="text-center mb-8 relative z-10">
+          <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 rounded-2xl mx-auto flex items-center justify-center mb-4 border border-cyan-500/30">
+            <LogIn className="w-8 h-8 text-cyan-400" />
           </div>
-          <h2 className="text-4xl font-bold mb-3">Voter Access</h2>
-          <p className="text-slate-400 text-lg">Verify your identity to proceed to the ballot.</p>
+          <h2 className="text-3xl font-bold mb-2">Voter Access</h2>
+          <p className="text-slate-400">Verify your identity to proceed to the ballot.</p>
         </div>
 
         <Alert message={error} type="error" />
 
-        <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
+        <form onSubmit={handleSubmit} className="relative z-10 space-y-5">
           <div>
-            <label className="block text-base font-medium text-slate-400 mb-2">Full Name</label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Full Name</label>
             <input 
               type="text" 
               required 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. John Doe"
-              className="glass-input text-lg py-5"
+              className="glass-input"
             />
           </div>
           <div>
-            <label className="block text-base font-medium text-slate-400 mb-2">Email Address</label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Email Address</label>
             <input 
               type="email" 
               required 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. john@student.edu"
-              className="glass-input text-lg py-5"
+              className="glass-input"
             />
           </div>
           <button 
             type="submit" 
             disabled={isLoading}
-            className="btn-primary w-full mt-6 py-4 text-lg group"
+            className="btn-primary w-full mt-4 group"
           >
             {isLoading ? 'Verifying...' : 'Proceed to Ballot'}
-            {!isLoading && <ArrowRight className="w-6 h-6 ml-2 group-hover:translate-x-1 transition-transform" />}
+            {!isLoading && <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />}
           </button>
         </form>
       </motion.div>
