@@ -106,11 +106,12 @@ Each position has its own independent candidate list and its own vote tally. The
 - (Optional stretch) Simple bar chart per position instead of just numbers.
 
 ### 6.11 Admin Controls
-- Define positions and add/remove/edit each position's candidate list before voting starts (via a config file or simple admin endpoint — no full admin UI needed for v1), including each candidate's **photo** (uploaded or linked via URL) and name.
-- Upload/edit the eligible-voters roster (name + email list).
-- Open/close voting (a single toggle/flag covering all positions).
+- Define positions and add/remove/edit each position's candidate list before voting starts. Includes uploading candidate photos directly.
+- Upload/edit the eligible-voters roster (add manually or upload via CSV), and remove individual voters.
+- Open/close voting manually (a single toggle) OR set scheduled start and close times that take precedence over the manual toggle.
 - Publish/hold-back public results (see 6.9).
-- Ability to export final results per position (e.g., view raw vote list as CSV) for record-keeping.
+- View a detailed audit log of every vote cast.
+- Reset the election (ability to delete individual votes, clear all casted votes, or wipe the entire election session including configuration).
 
 ## 7. Non-Functional Requirements
 - **Scale:** Designed for a single classroom (dozens to low hundreds of voters) — no need for high-scale infrastructure.
@@ -130,10 +131,10 @@ Each position has its own independent candidate list and its own vote tally. The
 - **UI feel:** Entrance/transition animations should be smooth but not slow down voting — keep them under ~400ms so the form stays fast to use.
 
 ## 8. Tech Stack
-- **Backend:** Node.js + Express
+- **Backend:** Node.js + Express (with Helmet, Rate Limiting, Mongo Sanitize)
 - **Database:** MongoDB (via Mongoose)
 - **Real-time updates:** Socket.io (WebSockets)
-- **Frontend:** HTML/CSS/JS + **GSAP** for animations (candidate cards entrance, animated vote-count ticking, live bar-chart transitions on the results page). CDN-loaded, no build step required — keeps the "no framework install" simplicity of v1 while making the UI feel alive.
+- **Frontend:** React 19 (via Vite) + React Router + Tailwind CSS for styling + **Framer Motion** for animations (candidate cards entrance, animated vote-count ticking).
 
 ## 8a. Visual Design
 A professional, cohesive look using a fixed color palette (not just default browser styling):
@@ -166,7 +167,7 @@ Candidate's "role" is simply the position they belong to (via `positionId`) — 
 
 **electionSettings** (single document holding global state)
 ```
-{ _id, votingOpen: boolean, resultsPublished: boolean }
+{ _id, votingOpen: boolean, resultsPublished: boolean, scheduledStartTime: Date, scheduledCloseTime: Date }
 ```
 
 **eligibleVoters** (the roster — admin-loaded, checked before allowing entry to voting)
@@ -191,14 +192,24 @@ Compound unique index on `(voterId, positionId)` — one vote per voter per posi
 | `/api/verify` | POST | Check `{ name, email }` against the roster before allowing entry to the voting form |
 | `/api/positions` | GET | List all positions with their candidates, for the voting form |
 | `/api/vote` | POST | Submit all votes in one go: `{ name, email, selections: [{ positionId, candidateId }, ...] }` |
-| `/api/results` | GET | Get current vote counts, grouped by position — **only returns data if results are published** (otherwise returns a "not published" response) |
-| `/api/admin/results` | GET | Get current vote counts, grouped by position — always live, admin-only (requires admin auth) |
+| `/api/results` | GET | Get current vote counts, grouped by position — **only returns data if results are published** |
+| `/api/admin/results` | GET | Get current vote counts, grouped by position — always live, admin-only |
 | `/api/status` | GET | Whether voting is currently open, and whether results are published |
-| (admin) `/api/admin/roster` | POST | Upload/replace the eligible-voters roster |
-| (admin) `/api/admin/positions` | POST | Add/edit a position and its candidates |
-| (admin) `/api/admin/close` | POST | Close voting |
-| (admin) `/api/admin/publish` | POST | Publish results to the public results page |
-| `/entry` (page) | GET | The entry page the QR code points to — name + email verification |
+| (admin) `/api/admin/login` | POST | Admin login |
+| (admin) `/api/admin/logout` | POST | Admin logout |
+| (admin) `/api/admin/settings` | POST | Manage votingOpen, resultsPublished |
+| (admin) `/api/admin/roster` | GET/POST | List roster / Add to roster |
+| (admin) `/api/admin/roster/:id` | DELETE | Remove voter from roster |
+| (admin) `/api/admin/upload-roster` | POST | Upload CSV roster |
+| (admin) `/api/admin/positions` | POST | Add a position |
+| (admin) `/api/admin/positions/:id` | DELETE | Delete a position |
+| (admin) `/api/admin/candidates` | POST | Add a candidate |
+| (admin) `/api/admin/candidates/:id`| DELETE | Delete a candidate |
+| (admin) `/api/admin/upload-photo` | POST | Upload candidate photo |
+| (admin) `/api/admin/votes-log` | GET | View detailed vote logs |
+| (admin) `/api/admin/votes/:id` | DELETE | Delete an individual vote |
+| (admin) `/api/admin/votes` | DELETE | Clear all votes |
+| (admin) `/api/admin/election` | DELETE | Wipe entire election session |
 
 Real-time: server emits a `results-updated` event over Socket.io whenever a new submission is recorded, so the results page updates instantly for all positions.
 

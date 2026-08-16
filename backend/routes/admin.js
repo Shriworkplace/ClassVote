@@ -87,13 +87,15 @@ if (!ADMIN_PASSWORD || !JWT_SECRET) {
 
 function passwordMatches(plainTextPassword) {
     const passwordBuffer = Buffer.from(plainTextPassword);
-    const adminBuffer = Buffer.from(ADMIN_PASSWORD);
+    const adminPasswords = ADMIN_PASSWORD.split(',').map(p => p.trim());
 
-    if (passwordBuffer.length !== adminBuffer.length) {
-        return false;
+    for (const adminPass of adminPasswords) {
+        const adminBuffer = Buffer.from(adminPass);
+        if (passwordBuffer.length === adminBuffer.length && crypto.timingSafeEqual(passwordBuffer, adminBuffer)) {
+            return true;
+        }
     }
-
-    return crypto.timingSafeEqual(passwordBuffer, adminBuffer);
+    return false;
 }
 
 module.exports = function(io) {

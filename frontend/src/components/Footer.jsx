@@ -20,10 +20,10 @@ const Footer = () => {
         </section>
 
         <section>
-          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400/80 mb-3">Builder</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400/80 mb-3">Development Team</p>
           <div className="space-y-2 text-sm text-slate-400 leading-6">
             <p>
-              Built by{' '}
+              <span className="font-medium text-slate-300">Backend:</span>{' '}
               <a
                 href="https://shriworkplace.github.io/"
                 target="_blank"
@@ -32,13 +32,16 @@ const Footer = () => {
               >
                 Shrived Dhone
               </a>
-              .
             </p>
             <p>
+              <span className="font-medium text-slate-300">Frontend:</span>{' '}
+              <span className="text-cyan-400 font-semibold">Siya Giri</span>
+            </p>
+            <p className="pt-2 border-t border-white/5 mt-2">
               Stack: React, Express, MongoDB, and Socket.io.
             </p>
-            <p>
-              All rights reserved.
+            <p className="text-xs opacity-75 mt-1">
+              &copy; {new Date().getFullYear()} ClassVote. All rights reserved.
             </p>
           </div>
         </section>

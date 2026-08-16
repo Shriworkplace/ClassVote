@@ -35,7 +35,15 @@ const VotingPage = () => {
   }, [navigate, voterName, voterEmail]);
 
   const handleSelect = (positionId, candidateId) => {
-    setSelections(prev => ({ ...prev, [positionId]: candidateId }));
+    setSelections(prev => {
+      const newSelections = { ...prev };
+      if (newSelections[positionId] === candidateId) {
+        delete newSelections[positionId];
+      } else {
+        newSelections[positionId] = candidateId;
+      }
+      return newSelections;
+    });
     setError('');
   };
 
@@ -104,25 +112,25 @@ const VotingPage = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-32">
+    <div className="max-w-7xl mx-auto pb-32">
       <motion.div 
         initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        className="glass-panel mb-8 flex flex-col md:flex-row justify-between items-center gap-6"
+        className="glass-panel mb-12 p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-8"
       >
         <div>
-          <h2 className="text-3xl font-bold font-heading mb-1 text-white">Welcome, <span className="text-cyan-400">{voterName}</span></h2>
-          <p className="text-slate-400">Please cast your vote for all listed positions below.</p>
+          <h2 className="text-4xl md:text-5xl font-bold font-heading mb-3 text-white">Welcome, <span className="text-cyan-400">{voterName}</span></h2>
+          <p className="text-slate-400 text-lg">Please cast your vote for all listed positions below.</p>
         </div>
-        <div className="bg-slate-900/80 px-6 py-4 rounded-xl border border-slate-700/50 flex flex-col items-end">
-           <span className="text-sm text-slate-400 font-medium mb-1">Your Progress</span>
-           <div className="flex items-center gap-3 w-full min-w-[150px]">
-              <div className="h-2 flex-1 bg-slate-800 rounded-full overflow-hidden">
+        <div className="bg-slate-900/80 px-8 py-6 rounded-2xl border border-slate-700/50 flex flex-col items-start md:items-end w-full md:w-auto">
+           <span className="text-base text-slate-400 font-medium mb-3">Your Progress</span>
+           <div className="flex items-center gap-4 w-full md:min-w-[250px]">
+              <div className="h-3 flex-1 bg-slate-800 rounded-full overflow-hidden">
                  <motion.div 
                     initial={{ width: 0 }} animate={{ width: `${progress}%` }} 
-                    className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" 
+                    className="h-full bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.6)]" 
                  />
               </div>
-              <span className="font-bold text-cyan-400">{Object.keys(selections).length}/{positions.length}</span>
+              <span className="font-bold text-xl text-cyan-400">{Object.keys(selections).length}/{positions.length}</span>
            </div>
         </div>
       </motion.div>
@@ -189,11 +197,11 @@ const VotingPage = () => {
                           <Check className={`w-3.5 h-3.5 text-slate-900 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
                         </div>
 
-                        <div className="relative mb-5 inline-block">
+                        <div className="relative mb-5 w-full">
                           <img 
                             src={photoSrc} 
                             alt={cand.name} 
-                            className={`w-28 h-28 rounded-full object-cover border-4 transition-all duration-300 ${
+                            className={`w-full h-48 sm:h-56 rounded-xl object-contain bg-slate-900/50 border-4 transition-all duration-300 ${
                               isSelected ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-105' : 'border-slate-800'
                             }`} 
                           />
