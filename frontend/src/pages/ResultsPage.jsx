@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
-import { Trophy, Medal, Loader2, Info, Play, X } from 'lucide-react';
+import { Trophy, Medal, Loader2, Info, Play, X, Radio, Award } from 'lucide-react';
 import Confetti from 'react-confetti';
 
 // A small component to animate the number counting up
@@ -12,7 +12,6 @@ const Counter = ({ from, to, duration, delay }) => {
     let start = null;
     let animationFrame;
     
-    // Wait for the delay before starting the count
     const timeout = setTimeout(() => {
       const step = (timestamp) => {
         if (!start) start = timestamp;
@@ -34,7 +33,7 @@ const Counter = ({ from, to, duration, delay }) => {
     };
   }, [from, to, duration, delay]);
 
-  return <span>{count}</span>;
+  return <span className="tabular-nums font-mono">{count}</span>;
 };
 
 const ResultsPage = () => {
@@ -81,11 +80,13 @@ const ResultsPage = () => {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto text-center mt-20">
-        <div className="glass-panel py-16 flex flex-col items-center">
-           <Info className="w-16 h-16 text-slate-500 mb-6" />
-           <h2 className="text-2xl font-bold text-slate-300 mb-2">Results Unavailable</h2>
-           <p className="text-slate-400">{error}</p>
+      <div className="max-w-2xl mx-auto text-center mt-16 px-4">
+        <div className="glass-panel py-16 px-8 flex flex-col items-center">
+           <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-5 text-slate-400 border border-white/[0.06]">
+             <Info className="w-7 h-7" />
+           </div>
+           <h2 className="text-2xl font-heading font-bold text-white mb-2 tracking-tight">Results Currently Unavailable</h2>
+           <p className="text-slate-300 text-sm max-w-md leading-relaxed">{error}</p>
         </div>
       </div>
     );
@@ -93,42 +94,51 @@ const ResultsPage = () => {
 
   if (!results) {
     return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <Loader2 className="w-10 h-10 animate-spin text-cyan-500" />
+      <div className="flex flex-col justify-center items-center h-[60vh] gap-3">
+        <Loader2 className="w-10 h-10 animate-spin text-cyan-400" />
+        <span className="text-sm font-medium text-slate-400">Loading verified tallies...</span>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto pb-20">
-      <div className="glass-panel text-center mb-12 relative overflow-hidden p-10 md:p-16">
-        <h2 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent font-heading">
-          Election Results
+    <div className="max-w-6xl mx-auto pb-24 px-4">
+      {/* Header Banner */}
+      <div className="glass-panel text-center mb-10 relative overflow-hidden p-8 sm:p-14">
+        <div className="badge-kicker mb-3 inline-flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Real-time Certified Tallies</span>
+        </div>
+
+        <h2 className="text-3xl sm:text-5xl font-heading font-black tracking-tight text-white mb-3">
+          Election Standings
         </h2>
-        <p className="text-slate-400 text-lg md:text-xl mb-10">Updates automatically in real-time as votes are cast.</p>
+        <p className="text-slate-300 text-sm sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+          Tallies are synchronized directly with the database in real-time as student ballots are submitted.
+        </p>
         
         {!hasCounted && (
           <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => {
               setHasCounted(true);
               setTimeout(() => {
                 setWinnersRevealed(true);
                 setShowWinnerModal(true);
-              }, 12000); // Wait 12 seconds for suspense
+              }, 12000); // 12 seconds suspense
             }}
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-10 py-4 text-xl rounded-full font-bold shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-4 mx-auto"
+            className="btn-primary px-8 py-4 text-base sm:text-lg flex items-center gap-3 mx-auto"
           >
-            <Play className="w-6 h-6 fill-white" />
-            Start Vote Count
+            <Play className="w-5 h-5 fill-white" />
+            Initialize Vote Count
           </motion.button>
         )}
       </div>
 
-      <div className="space-y-12">
+      {/* Position Breakdown */}
+      <div className="space-y-10">
         {results.map((pos, idx) => {
-          // Sort alphabetically so the display order is stable but hides who is winning
           const displayCandidates = [...pos.candidates].sort((a, b) => a.name.localeCompare(b.name));
           const maxVotes = Math.max(...pos.candidates.map(c => c.votes));
           
@@ -136,84 +146,93 @@ const ResultsPage = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: idx * 0.08 }}
               key={pos.name}
               className="glass-panel overflow-hidden"
             >
-              <div className="bg-slate-900/50 p-6 border-b border-white/5 flex justify-between items-center">
-                <h3 className="text-xl font-bold flex items-center gap-3 font-heading">
-                  <span className="text-cyan-500 font-normal opacity-50">#{idx + 1}</span>
-                  {pos.name}
-                </h3>
-                <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-sm font-medium text-slate-300">
-                  Total Votes: <span className="text-white font-bold ml-1">{hasCounted ? <Counter from={0} to={pos.totalVotes} duration={6000} delay={0} /> : 0}</span>
+              {/* Header Bar */}
+              <div className="bg-slate-950/60 px-6 py-4 border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono font-bold text-xs text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-md border border-cyan-500/20">
+                    POS {String(idx + 1).padStart(2, '0')}
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-heading font-bold text-white tracking-tight">
+                    {pos.name}
+                  </h3>
+                </div>
+                
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-white/[0.08] text-xs font-medium text-slate-300">
+                  <span className="text-slate-400">Total Ballots:</span>
+                  <span className="text-white font-mono font-bold">
+                    {hasCounted ? <Counter from={0} to={pos.totalVotes} duration={6000} delay={0} /> : 0}
+                  </span>
                 </div>
               </div>
               
-              <div className="p-6">
+              {/* Chart Body */}
+              <div className="p-6 sm:p-8">
                 {!hasCounted ? (
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl bg-slate-900/30">
-                     <p className="text-slate-500 font-medium">Awaiting Count Initialization...</p>
+                  <div className="h-56 flex flex-col items-center justify-center border border-dashed border-white/[0.08] rounded-xl bg-slate-950/30 gap-2">
+                     <Radio className="w-6 h-6 text-slate-500 animate-pulse" />
+                     <p className="text-slate-400 text-sm font-medium">Awaiting Count Initialization...</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto pb-4 custom-scrollbar">
-                    <div className="flex justify-around items-end h-[350px] gap-8 mt-8 px-2 md:px-8 min-w-max md:min-w-full">
+                  <div className="overflow-x-auto pb-4">
+                    <div className="flex justify-around items-end h-[340px] gap-6 mt-4 px-2 md:px-6 min-w-max md:min-w-full">
                       {displayCandidates.map((cand, i) => {
-                      const percentage = pos.totalVotes === 0 ? 0 : Math.round((cand.votes / pos.totalVotes) * 100);
-                      const isWinner = winnersRevealed && cand.votes === maxVotes && pos.totalVotes > 0;
-                      // Stagger the bars significantly more to build tension
-                      const animationDelay = i * 2.0; 
-                      
-                      return (
-                        <div key={cand.candidateId} className="flex flex-col items-center justify-end h-full w-full max-w-[100px] md:max-w-[140px]">
-                          
-                          {/* Count Animation */}
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: animationDelay + 1.0 }}
-                            className="mb-3 text-center"
-                          >
-                            <span className="text-2xl font-bold text-white block">
-                              <Counter from={0} to={percentage} duration={4000} delay={animationDelay} />%
-                            </span>
-                            <span className="text-sm text-slate-400 font-medium">
-                              <Counter from={0} to={cand.votes} duration={4000} delay={animationDelay} /> votes
-                            </span>
-                          </motion.div>
-
-                          {/* Vertical Bar */}
-                          <div className="w-full bg-slate-800 rounded-t-2xl relative flex-1 max-h-[220px]">
-                            <motion.div
-                              initial={{ height: "0%" }}
-                              animate={{ height: `${percentage}%` }}
-                              // Slow, dramatic easing curve
-                              transition={{ duration: 6, ease: [0.16, 1, 0.3, 1], delay: animationDelay }}
-                              className={`absolute bottom-0 left-0 w-full rounded-t-2xl transition-all duration-1000 ${
-                                isWinner 
-                                  ? 'bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.6)]' 
-                                  : 'bg-slate-600'
-                              }`}
-                            />
-                          </div>
-                          
-                          {/* Label */}
-                          <div className="mt-4 text-center h-16 flex flex-col items-center w-full">
-                            {isWinner && (
-                              <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring' }}>
-                                <Trophy className="w-6 h-6 text-yellow-400 mb-1 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]" />
-                              </motion.div>
-                            )}
+                        const percentage = pos.totalVotes === 0 ? 0 : Math.round((cand.votes / pos.totalVotes) * 100);
+                        const isWinner = winnersRevealed && cand.votes === maxVotes && pos.totalVotes > 0;
+                        const animationDelay = i * 2.0; 
+                        
+                        return (
+                          <div key={cand.candidateId} className="flex flex-col items-center justify-end h-full w-full max-w-[110px] md:max-w-[150px]">
                             
-                            <span className={`font-bold text-sm leading-tight px-1 transition-colors duration-1000 ${isWinner ? 'text-white' : 'text-slate-300'} text-center line-clamp-2`}>
-                              {cand.name}
-                            </span>
+                            {/* Animated Numbers */}
+                            <motion.div 
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: animationDelay + 0.8 }}
+                              className="mb-3 text-center"
+                            >
+                              <span className="text-2xl sm:text-3xl font-mono font-extrabold text-white block tracking-tight tabular-nums">
+                                <Counter from={0} to={percentage} duration={4000} delay={animationDelay} />%
+                              </span>
+                              <span className="text-xs font-mono text-slate-400 font-medium">
+                                <Counter from={0} to={cand.votes} duration={4000} delay={animationDelay} /> votes
+                              </span>
+                            </motion.div>
+
+                            {/* Vertical Bar */}
+                            <div className="w-full bg-slate-950/80 rounded-t-xl relative flex-1 max-h-[210px] border border-white/[0.06]">
+                              <motion.div
+                                initial={{ height: "0%" }}
+                                animate={{ height: `${percentage}%` }}
+                                transition={{ duration: 5.5, ease: [0.16, 1, 0.3, 1], delay: animationDelay }}
+                                className={`absolute bottom-0 left-0 w-full rounded-t-xl transition-all duration-1000 ${
+                                  isWinner 
+                                    ? 'bg-gradient-to-t from-blue-600 via-cyan-500 to-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.6)]' 
+                                    : 'bg-slate-700/80'
+                                }`}
+                              />
+                            </div>
+                            
+                            {/* Candidate Label */}
+                            <div className="mt-3.5 text-center h-16 flex flex-col items-center w-full">
+                              {isWinner && (
+                                <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring' }}>
+                                  <Trophy className="w-5 h-5 text-amber-400 mb-1 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                                </motion.div>
+                              )}
+                              
+                              <span className={`font-heading font-semibold text-sm leading-tight px-1 transition-colors duration-700 ${isWinner ? 'text-cyan-300 font-bold' : 'text-slate-300'} text-center line-clamp-2`}>
+                                {cand.name}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
                 )}
               </div>
             </motion.div>
@@ -221,44 +240,51 @@ const ResultsPage = () => {
         })}
       </div>
 
+      {/* Winner Celebration Modal */}
       <AnimatePresence>
         {showWinnerModal && (
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
           >
             <Confetti 
               width={windowDimensions.width} 
               height={windowDimensions.height} 
               recycle={false} 
-              numberOfPieces={600} 
-              gravity={0.15} 
+              numberOfPieces={500} 
+              gravity={0.12} 
             />
             
             <motion.div 
-              initial={{ scale: 0.9, y: 20 }} 
+              initial={{ scale: 0.92, y: 16 }} 
               animate={{ scale: 1, y: 0 }} 
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto glass-panel p-8 md:p-12 border-cyan-500/50 shadow-[0_0_50px_rgba(6,182,212,0.3)]"
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-panel p-6 sm:p-10 border-amber-500/40 shadow-[0_0_60px_rgba(245,158,11,0.25)]"
             >
               <button 
                 onClick={() => setShowWinnerModal(false)}
-                className="absolute top-6 right-6 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors z-10"
+                className="absolute top-5 right-5 p-2 rounded-full bg-slate-850 hover:bg-slate-800 text-slate-300 transition-colors z-10 border border-white/[0.08]"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
 
-              <div className="text-center mb-10 mt-4">
-                <h2 className="text-5xl md:text-6xl font-extrabold mb-4 bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600 bg-clip-text text-transparent font-heading drop-shadow-lg">
-                  ELECTION WINNERS
+              <div className="text-center mb-8 mt-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-300 mb-3">
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Official Election Outcome</span>
+                </div>
+                <h2 className="text-3xl sm:text-5xl font-heading font-black text-white tracking-tight mb-2">
+                  Elected Representatives
                 </h2>
-                <p className="text-slate-300 text-lg md:text-xl">Congratulations to the newly elected candidates!</p>
+                <p className="text-slate-300 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
+                  Congratulations to the newly elected student candidates!
+                </p>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-8">
+              <div className="flex flex-wrap justify-center gap-6">
                 {results && results.map((pos, idx) => {
                   const maxVotes = Math.max(...pos.candidates.map(c => c.votes));
                   const winner = pos.candidates.find(c => c.votes === maxVotes && pos.totalVotes > 0);
@@ -266,23 +292,35 @@ const ResultsPage = () => {
 
                   return (
                     <motion.div 
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.85 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.5 + (idx * 0.2) }}
+                      transition={{ delay: 0.4 + (idx * 0.15) }}
                       key={pos.name} 
-                      className="flex flex-col items-center p-8 bg-slate-900/60 rounded-3xl border border-white/10 w-full sm:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1.5rem)]"
+                      className="flex flex-col items-center p-6 bg-slate-950/70 rounded-2xl border border-white/[0.1] w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.33%-1rem)] relative overflow-hidden"
                     >
-                      <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-yellow-500 mb-6 shadow-[0_0_20px_rgba(234,179,8,0.4)]">
+                      <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-amber-400 mb-4 shadow-[0_0_24px_rgba(245,158,11,0.3)] bg-slate-900">
                         {winner.photoUrl ? (
                           <img src={winner.photoUrl} alt={winner.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">No Photo</div>
+                          <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500 font-mono text-xs">No Photo</div>
                         )}
                       </div>
-                      <Trophy className="w-10 h-10 text-yellow-400 mb-3 drop-shadow-md" />
-                      <h3 className="text-2xl font-bold text-white text-center mb-1 leading-tight">{winner.name}</h3>
-                      <p className="text-cyan-400 font-medium text-center">{pos.name}</p>
-                      <p className="text-slate-400 text-sm mt-3">{winner.votes} votes</p>
+                      
+                      <div className="flex items-center gap-1.5 text-amber-400 mb-1">
+                        <Trophy className="w-4 h-4" />
+                        <span className="font-mono text-xs uppercase tracking-wider font-semibold">Winner</span>
+                      </div>
+                      
+                      <h3 className="text-lg font-heading font-bold text-white text-center mb-1 leading-snug">
+                        {winner.name}
+                      </h3>
+                      <p className="text-cyan-300 text-xs font-medium text-center">{pos.name}</p>
+                      
+                      <div className="mt-3 pt-3 border-t border-white/[0.06] w-full text-center">
+                        <span className="font-mono text-xs text-slate-400 font-medium">
+                          <strong className="text-white tabular-nums">{winner.votes}</strong> verified votes
+                        </span>
+                      </div>
                     </motion.div>
                   );
                 })}

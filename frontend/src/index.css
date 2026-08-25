@@ -1,69 +1,90 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap');
-
-@theme {
-  --color-prussian-blue: #0b132b;
-  --color-space-indigo: #1c2541;
-  --color-dusk-blue: #3a506b;
-  --color-tropical-teal: #5bc0be;
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --font-fallback: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-slate-900 text-slate-100 font-sans antialiased min-h-screen relative overflow-x-hidden;
-    background: radial-gradient(circle at 15% 50%, rgba(91, 192, 190, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(91, 192, 190, 0.15), transparent 25%),
-                #0b132b;
+    @apply bg-slate-950 text-slate-200 font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-200;
+    background: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.12), transparent 70%),
+      radial-gradient(circle at 10% 40%, rgba(37, 99, 235, 0.08), transparent 35%),
+      radial-gradient(circle at 90% 70%, rgba(91, 192, 190, 0.08), transparent 35%),
+      #080e1e;
     background-size: cover;
     background-attachment: fixed;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
+    @apply font-heading text-white tracking-tight;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 }
 
 @layer components {
+  /* Ultra-refined Glass Panel with subtle ambient light and micro-border */
   .glass-panel {
-    @apply bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl;
+    @apply bg-slate-900/70 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.36)] transition-all duration-300;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
   
+  .glass-panel-subtle {
+    @apply bg-slate-900/40 backdrop-blur-lg border border-white/[0.05] rounded-xl;
+  }
+
   .glass-input {
-    @apply w-full p-4 bg-slate-900/60 border border-white/10 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all placeholder-slate-400;
+    @apply w-full px-4 py-3.5 bg-slate-900/80 border border-white/[0.1] text-white rounded-xl font-sans text-base focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/80 transition-all placeholder:text-slate-500 shadow-inner;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:-translate-y-0.5 transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-cyan-500/30;
+    @apply inline-flex items-center justify-center font-heading font-semibold text-base tracking-wide text-white px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-400 to-blue-600 shadow-[0_0_24px_rgba(6,182,212,0.35)] hover:shadow-[0_0_32px_rgba(6,182,212,0.55)] hover:-translate-y-0.5 transition-all duration-200 active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center font-heading font-semibold text-base tracking-wide text-slate-200 px-6 py-3 rounded-xl bg-slate-900/70 hover:bg-slate-800/90 border border-white/[0.1] hover:border-white/[0.2] shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 backdrop-blur-md;
+  }
+
+  /* Micro-typography & Badges */
+  .badge-kicker {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-widest bg-cyan-500/10 border border-cyan-500/25 text-cyan-300;
+  }
+
+  .badge-neutral {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wide bg-slate-800/80 border border-white/[0.08] text-slate-300;
+  }
+
+  /* Numeric & Metrics */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b132b;
+  background: #080e1e;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(28, 37, 65, 0.8);
-  border-radius: 4px;
+  background: rgba(43, 63, 112, 0.6);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #5bc0be;
-}
-
-/* 3D Ballot Box Animation Styles */
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
+  background: rgba(6, 182, 212, 0.6);
 }

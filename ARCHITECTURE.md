@@ -221,15 +221,13 @@ This is the practical order to run an election with the current codebase.
 8. Close voting when the election ends.
 9. Export or inspect the final data if needed.
 
-## 9. Current Gaps Versus the PRD
+## 9. Implementation Notes
 
-The repo already supports the core election loop, but a few PRD items are still only partially implemented.
-
-- The backend has admin login and roster management, but the login uses a password check rather than a fuller session model.
-- Scheduled voting exists in `Settings`, but the PRD emphasizes a simpler open/close model.
-- The frontend still uses `sessionStorage` for voter identity instead of a stronger session handoff.
-- Public results are blocked until published, which matches the PRD.
-- The QR flow currently points at the site origin in the admin UI, not a dedicated entry URL.
+- The backend provides admin login and roster management with cookie-based token authentication.
+- Scheduled start and close windows are supported in `Settings`, taking precedence over the manual toggle.
+- The frontend uses `sessionStorage` for voter identity verification handoff to `/voting`.
+- Public results are gated until published by the admin.
+- The QR flow in the admin dashboard encodes the site origin for instant voter access.
 
 ## 10. Suggested Mental Model
 

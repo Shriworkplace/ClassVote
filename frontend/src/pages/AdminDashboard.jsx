@@ -4,7 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { format } from 'date-fns';
 import Alert from '../components/Alert';
 import { motion } from 'framer-motion';
-import { Lock, LogOut, Settings, Users, UserPlus, Clock, Trash2, Download } from 'lucide-react';
+import { Lock, LogOut, Settings, Users, UserPlus, Clock, Trash2, Download, ShieldCheck, QrCode, RefreshCw } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 const AdminDashboard = () => {
@@ -43,7 +43,6 @@ const AdminDashboard = () => {
 
     const socket = io();
     socket.on('results-updated', () => {
-      // Re-fetch dashboard data (specifically adminResults) when someone votes
       loadDashboardData();
     });
 
@@ -74,10 +73,10 @@ const AdminDashboard = () => {
         setError('');
         loadDashboardData();
       } else {
-        setError('Invalid admin password');
+        setError('Invalid master credentials');
       }
     } catch (err) {
-      setError('Login failed');
+      setError('Authentication failed. Please retry.');
     }
   };
 
@@ -140,7 +139,7 @@ const AdminDashboard = () => {
         })
       });
       if (res.ok) {
-        showMessage(`Schedule updated`);
+        showMessage(`Schedule window updated`);
       }
     } catch (e) {}
   };
@@ -168,17 +167,19 @@ const AdminDashboard = () => {
       
       if (res.ok) {
         const data = await res.json();
-        showMessage(`Updated roster with ${data.count} voters`);
+        showMessage(`Roster synced with ${data.count} voters`);
         setRosterData('');
         setRosterFile(null);
-        document.getElementById('roster-file').value = '';
+        if (document.getElementById('roster-file')) {
+          document.getElementById('roster-file').value = '';
+        }
         loadDashboardData();
       } else {
         const errData = await res.json();
         showMessage(errData.error || 'Failed to update roster', true);
       }
     } catch (e) {
-      showMessage('Invalid JSON format or File upload error', true);
+      showMessage('Invalid JSON format or file upload error', true);
     }
   };
 
@@ -214,7 +215,7 @@ const AdminDashboard = () => {
           const uploadData = await uploadRes.json();
           finalPhotoUrl = uploadData.url;
         } else {
-          showMessage('Failed to upload photo', true);
+          showMessage('Failed to upload candidate photo', true);
           return;
         }
       }
@@ -225,7 +226,7 @@ const AdminDashboard = () => {
         body: JSON.stringify({ positionId: candPos, name: candName, photoUrl: finalPhotoUrl })
       });
       if (res.ok) {
-        showMessage('Candidate added');
+        showMessage('Candidate registered');
         setCandName('');
         setCandPhoto('');
         setCandPhotoFile(null);
@@ -264,11 +265,11 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteVote = async (id) => {
-    if (window.confirm("Are you sure you want to delete this specific vote?")) {
+    if (window.confirm("Are you sure you want to delete this specific vote record?")) {
       try {
         const res = await fetch(`/api/admin/votes/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          showMessage('Vote deleted successfully');
+          showMessage('Vote record deleted');
           loadDashboardData();
         } else {
           showMessage('Failed to delete vote', true);
@@ -280,11 +281,11 @@ const AdminDashboard = () => {
   };
 
   const handleDeletePosition = async (id) => {
-    if (window.confirm("Are you sure you want to delete this position and all its candidates?")) {
+    if (window.confirm("Are you sure you want to delete this position and all associated candidates?")) {
       try {
         const res = await fetch(`/api/admin/positions/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          showMessage('Position deleted successfully');
+          showMessage('Position removed');
           loadDashboardData();
         } else {
           showMessage('Failed to delete position', true);
@@ -296,11 +297,11 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteCandidate = async (id) => {
-    if (window.confirm("Are you sure you want to delete this candidate?")) {
+    if (window.confirm("Are you sure you want to remove this candidate?")) {
       try {
         const res = await fetch(`/api/admin/candidates/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          showMessage('Candidate deleted successfully');
+          showMessage('Candidate removed');
           loadDashboardData();
         } else {
           showMessage('Failed to delete candidate', true);
@@ -316,7 +317,7 @@ const AdminDashboard = () => {
       try {
         const res = await fetch(`/api/admin/roster/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          showMessage('Voter removed successfully');
+          showMessage('Voter removed from roster');
           loadDashboardData();
         } else {
           showMessage('Failed to remove voter', true);
@@ -329,23 +330,33 @@ const AdminDashboard = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="glass-panel w-full max-w-sm p-8 text-center">
-          <div className="w-16 h-16 bg-slate-800 rounded-2xl mx-auto flex items-center justify-center mb-6">
-            <Lock className="w-8 h-8 text-slate-300" />
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <div className="glass-panel w-full max-w-sm p-8 sm:p-10 text-center relative overflow-hidden">
+          <div className="w-14 h-14 bg-slate-800/80 border border-white/[0.08] rounded-2xl mx-auto flex items-center justify-center mb-6 text-slate-300">
+            <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold mb-6">Admin Access</h2>
+          
+          <div className="badge-kicker mb-2">
+            <span>Restricted Access</span>
+          </div>
+
+          <h2 className="text-2xl font-heading font-extrabold text-white mb-2 tracking-tight">Admin Console</h2>
+          <p className="text-xs text-slate-400 mb-6">Enter master secret to manage elections.</p>
+          
           <Alert message={error} type="error" />
-          <form onSubmit={handleLogin}>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Master Password"
               required
-              className="glass-input mb-4"
+              className="glass-input text-center"
             />
-            <button type="submit" className="btn-primary w-full">Authenticate</button>
+            <button type="submit" className="btn-primary w-full py-3">
+              Unlock Console
+            </button>
           </form>
         </div>
       </div>
@@ -353,368 +364,443 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto pb-20">
-      <div className="flex justify-between items-center mb-8">
+    <div className="max-w-7xl mx-auto pb-24 px-4">
+      {/* Top Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-white/[0.08]">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2">Control Panel</h2>
-          <p className="text-slate-400">Manage elections, voters, and candidates</p>
+          <div className="badge-kicker mb-1">
+            <span>System Control</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-heading font-black text-white tracking-tight">
+            Election Control Panel
+          </h2>
+          <p className="text-slate-400 text-sm mt-1">Configure parameters, verify rosters, and monitor live tallies.</p>
         </div>
-        <button onClick={handleLogout} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors border border-slate-700">
-          <LogOut className="w-4 h-4" /> Logout
+        
+        <button 
+          onClick={handleLogout} 
+          className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-mono font-medium transition-colors border border-white/[0.08]"
+        >
+          <LogOut className="w-3.5 h-3.5" /> Terminate Session
         </button>
       </div>
 
-      <div className="fixed top-24 right-6 z-50 w-80">
+      <div className="fixed top-20 right-6 z-50 w-80">
         <Alert message={error} type="error" />
         <Alert message={success} type="success" />
       </div>
 
+      {/* Primary Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         
         {/* Election Settings */}
-        <div className="glass-panel p-6 space-y-8">
-          <div className="flex items-center gap-3 border-b border-slate-700 pb-4 mb-4">
-            <Settings className="w-6 h-6 text-cyan-500" />
-            <h3 className="text-xl font-bold">Election Status</h3>
+        <div className="glass-panel p-6 sm:p-8 space-y-6">
+          <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
+            <Settings className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-lg font-heading font-bold text-white tracking-tight">Election Parameters</h3>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 text-center">
-              <div className="text-sm text-slate-400 mb-2">Voting Portal</div>
-              <div className={`text-xl font-bold ${settings.votingOpen ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-white/[0.06] text-center">
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1">Voting Portal</div>
+              <div className={`text-xl font-heading font-extrabold tracking-tight ${settings.votingOpen ? 'text-emerald-400' : 'text-red-400'}`}>
                 {settings.votingOpen ? 'OPEN' : 'CLOSED'}
               </div>
-              <button onClick={() => toggleSetting('votingOpen')} className="mt-4 px-4 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-sm transition-colors border border-slate-600">
-                Toggle Manual
+              <button 
+                onClick={() => toggleSetting('votingOpen')} 
+                className="mt-3 px-3 py-1.5 bg-slate-850 hover:bg-slate-800 rounded-lg text-xs font-mono font-medium text-slate-200 transition-colors border border-white/[0.08]"
+              >
+                Toggle State
               </button>
             </div>
             
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 text-center">
-              <div className="text-sm text-slate-400 mb-2">Public Results</div>
-              <div className={`text-xl font-bold ${settings.resultsPublished ? 'text-emerald-400' : 'text-slate-500'}`}>
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-white/[0.06] text-center">
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1">Public Standings</div>
+              <div className={`text-xl font-heading font-extrabold tracking-tight ${settings.resultsPublished ? 'text-emerald-400' : 'text-slate-500'}`}>
                 {settings.resultsPublished ? 'PUBLISHED' : 'HIDDEN'}
               </div>
-              <button onClick={() => toggleSetting('resultsPublished')} className="mt-4 px-4 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-sm transition-colors border border-slate-600">
+              <button 
+                onClick={() => toggleSetting('resultsPublished')} 
+                className="mt-3 px-3 py-1.5 bg-slate-850 hover:bg-slate-800 rounded-lg text-xs font-mono font-medium text-slate-200 transition-colors border border-white/[0.08]"
+              >
                 Toggle Visibility
               </button>
             </div>
           </div>
 
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mt-4 flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-4 text-center sm:text-left">
-            <div className="pr-0 sm:pr-4">
-               <div className="text-sm text-slate-400 mb-1">Share Voting Portal</div>
-               <div className="text-sm font-mono text-cyan-400 break-all">{window.location.origin}</div>
-               <p className="text-xs text-slate-500 mt-2">Display this QR code on a projector or screen so students can scan it and vote instantly.</p>
+          {/* QR Share Card */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1">Student Portal URL</div>
+              <div className="text-xs font-mono text-cyan-300 break-all bg-slate-900 px-2.5 py-1 rounded border border-white/[0.06]">
+                {window.location.origin}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Display this QR code on a projector for direct student access.</p>
             </div>
-            <div className="bg-white p-2 rounded-lg flex-shrink-0">
-               <img 
-                 src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin)}`} 
-                 alt="QR Code" 
-                 className="w-24 h-24"
-               />
+            <div className="bg-white p-2 rounded-xl flex-shrink-0 shadow-lg">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(window.location.origin)}`} 
+                alt="QR Code" 
+                className="w-20 h-20"
+              />
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <div className="flex items-center gap-2 mb-4">
-               <Clock className="w-5 h-5 text-cyan-500" />
-               <h4 className="font-semibold text-lg">Schedule Window (Overrides Manual)</h4>
+          {/* Schedule Window */}
+          <div className="pt-4 border-t border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-cyan-400" />
+              <h4 className="text-sm font-heading font-semibold text-white">Automated Schedule Window</h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div>
-                  <label className="block text-sm text-slate-400 mb-1">Start Time</label>
-                  <DatePicker 
-                    selected={startTime} 
-                    onChange={(date) => setStartTime(date)} 
-                    showTimeSelect 
-                    dateFormat="Pp"
-                    className="glass-input !py-2 !text-sm"
-                    placeholderText="Immediate"
-                  />
-               </div>
-               <div>
-                  <label className="block text-sm text-slate-400 mb-1">Close Time</label>
-                  <DatePicker 
-                    selected={closeTime} 
-                    onChange={(date) => setCloseTime(date)} 
-                    showTimeSelect 
-                    dateFormat="Pp"
-                    className="glass-input !py-2 !text-sm"
-                    placeholderText="Manual Close"
-                  />
-               </div>
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">Start Time</label>
+                <DatePicker 
+                  selected={startTime} 
+                  onChange={(date) => setStartTime(date)} 
+                  showTimeSelect 
+                  dateFormat="Pp"
+                  className="glass-input !py-2 !text-xs font-mono"
+                  placeholderText="Immediate"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">Close Time</label>
+                <DatePicker 
+                  selected={closeTime} 
+                  onChange={(date) => setCloseTime(date)} 
+                  showTimeSelect 
+                  dateFormat="Pp"
+                  className="glass-input !py-2 !text-xs font-mono"
+                  placeholderText="Manual Close"
+                />
+              </div>
             </div>
-            <button onClick={updateSchedule} className="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg transition-colors border border-slate-600 text-sm">
-               Save Schedule
+            <button 
+              onClick={updateSchedule} 
+              className="mt-3 w-full bg-slate-850 hover:bg-slate-800 text-slate-200 py-2 rounded-xl text-xs font-mono font-medium transition-colors border border-white/[0.08]"
+            >
+              Save Schedule Parameters
             </button>
           </div>
         </div>
 
         {/* Roster Management */}
-        <div className="glass-panel p-6">
-          <div className="flex items-center gap-3 border-b border-slate-700 pb-4 mb-4">
-            <Users className="w-6 h-6 text-cyan-500" />
-            <h3 className="text-xl font-bold">Roster Management</h3>
+        <div className="glass-panel p-6 sm:p-8">
+          <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4 mb-4">
+            <Users className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-lg font-heading font-bold text-white tracking-tight">Roster Management</h3>
           </div>
-          <p className="text-sm text-slate-400 mb-4">Provide a JSON array OR upload a .csv file (must have "Name" and "Email" columns).</p>
+          <p className="text-xs text-slate-400 mb-4">Upload a .csv with "Name" and "Email" columns or paste JSON voter list.</p>
+          
           <input 
             type="file" 
             id="roster-file"
             accept=".csv,text/csv"
             onChange={(e) => setRosterFile(e.target.files[0])}
-            className="w-full mb-4 text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-500 hover:file:bg-cyan-500/20"
+            className="w-full mb-3 text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-300 hover:file:bg-cyan-500/20"
           />
-          <div className="flex items-center gap-2 mb-4">
-             <div className="h-px bg-slate-700 flex-1"></div>
-             <span className="text-slate-500 text-sm">OR</span>
-             <div className="h-px bg-slate-700 flex-1"></div>
+          
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-px bg-white/[0.06] flex-1"></div>
+            <span className="text-slate-500 text-xs font-mono">OR RAW JSON</span>
+            <div className="h-px bg-white/[0.06] flex-1"></div>
           </div>
+          
           <textarea 
             value={rosterData}
             onChange={(e) => setRosterData(e.target.value)}
             disabled={!!rosterFile}
-            className={`w-full h-40 bg-slate-900/60 text-slate-300 p-4 rounded-xl border border-slate-700 focus:outline-none focus:border-cyan-500 font-mono text-sm resize-none mb-4 ${rosterFile ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full h-32 bg-slate-950/70 text-slate-300 p-3 rounded-xl border border-white/[0.08] focus:outline-none focus:border-cyan-400 font-mono text-xs resize-none mb-3 ${rosterFile ? 'opacity-40 cursor-not-allowed' : ''}`}
             placeholder={`[\n  {\n    "name": "Alice Smith",\n    "email": "alice@school.edu"\n  }\n]`}
           />
-          <button onClick={handleUpdateRoster} className="btn-primary w-full">Sync Roster</button>
+          <button onClick={handleUpdateRoster} className="btn-primary w-full py-2.5 text-sm">
+            Sync Eligible Roster
+          </button>
 
-          {/* Eligible Voters List */}
-          <div className="mt-6 pt-6 border-t border-slate-700">
-             <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-lg">Current Eligible Voters</h4>
-                <span className="text-sm font-mono text-cyan-400 bg-slate-800 px-2 py-1 rounded">{eligibleVoters.length} Total</span>
-             </div>
-             <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                 {eligibleVoters.length === 0 ? (
-                    <p className="text-sm text-slate-500">No voters currently eligible.</p>
-                 ) : (
-                    eligibleVoters.map(v => (
-                       <div key={v._id} className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700">
-                          <div className="flex flex-col">
-                             <span className="text-sm text-slate-300 font-medium">{v.name}</span>
-                             <span className="text-xs text-slate-500">{v.email}</span>
-                          </div>
-                          <button onClick={() => handleDeleteVoter(v._id)} className="text-red-400 hover:text-red-300 p-1 rounded transition-colors" title="Delete Voter">
-                             <Trash2 className="w-4 h-4" />
-                          </button>
-                       </div>
-                    ))
-                 )}
-             </div>
+          {/* Current Eligible List */}
+          <div className="mt-5 pt-4 border-t border-white/[0.06]">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Current Eligible Roster</h4>
+              <span className="text-xs font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full font-bold tabular-nums">
+                {eligibleVoters.length} Verified
+              </span>
+            </div>
+            <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+              {eligibleVoters.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">No voters registered on roster yet.</p>
+              ) : (
+                eligibleVoters.map(v => (
+                  <div key={v._id} className="flex justify-between items-center bg-slate-950/50 px-3 py-2 rounded-lg border border-white/[0.05]">
+                    <div className="flex flex-col">
+                      <span className="text-xs text-slate-200 font-medium">{v.name}</span>
+                      <span className="text-[11px] font-mono text-slate-400">{v.email}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteVoter(v._id)} 
+                      className="text-red-400 hover:text-red-300 p-1 transition-colors" 
+                      title="Remove voter"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Creation Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-         {/* Add Position */}
-         <div className="glass-panel p-6">
-            <h3 className="text-xl font-bold mb-4">Add Position</h3>
-            <form onSubmit={handleAddPosition} className="space-y-4">
-               <input 
-                  type="text" 
-                  required 
-                  value={posName}
-                  onChange={(e) => setPosName(e.target.value)}
-                  placeholder="e.g. Class President"
-                  className="glass-input"
-               />
-               <button type="submit" className="btn-primary w-full">Create Position</button>
-            </form>
-         </div>
+        {/* Add Position */}
+        <div className="glass-panel p-6">
+          <h3 className="text-lg font-heading font-bold text-white mb-4 tracking-tight">Create Position</h3>
+          <form onSubmit={handleAddPosition} className="space-y-3">
+            <input 
+              type="text" 
+              required 
+              value={posName}
+              onChange={(e) => setPosName(e.target.value)}
+              placeholder="e.g. Class President"
+              className="glass-input"
+            />
+            <button type="submit" className="btn-primary w-full py-2.5 text-sm">
+              Add Position
+            </button>
+          </form>
+        </div>
 
-         {/* Add Candidate */}
-         <div className="glass-panel p-6">
-            <div className="flex items-center gap-3 mb-4">
-               <UserPlus className="w-6 h-6 text-cyan-500" />
-               <h3 className="text-xl font-bold">Add Candidate</h3>
+        {/* Add Candidate */}
+        <div className="glass-panel p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <UserPlus className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-lg font-heading font-bold text-white tracking-tight">Register Candidate</h3>
+          </div>
+          <form onSubmit={handleAddCandidate} className="space-y-3">
+            <select 
+              required
+              value={candPos}
+              onChange={(e) => setCandPos(e.target.value)}
+              className="glass-input"
+            >
+              <option value="">-- Select Target Position --</option>
+              {positions.map(p => (
+                <option key={p._id} value={p._id} className="bg-slate-900 text-white">{p.name}</option>
+              ))}
+            </select>
+            <input 
+              type="text" 
+              required 
+              value={candName}
+              onChange={(e) => setCandName(e.target.value)}
+              placeholder="Candidate Full Name"
+              className="glass-input"
+            />
+            <div className="space-y-2">
+              <input 
+                type="url" 
+                value={candPhoto}
+                onChange={(e) => { setCandPhoto(e.target.value); setCandPhotoFile(null); if (document.getElementById('cand-photo-file')) document.getElementById('cand-photo-file').value = ''; }}
+                placeholder="Photo URL (e.g. https://...)"
+                className="glass-input !text-xs"
+              />
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-white/[0.06] flex-1"></div>
+                <span className="text-slate-500 text-[11px] font-mono">OR LOCAL IMAGE</span>
+                <div className="h-px bg-white/[0.06] flex-1"></div>
+              </div>
+              <input
+                type="file"
+                id="cand-photo-file"
+                accept="image/*"
+                onChange={(e) => { setCandPhotoFile(e.target.files[0]); setCandPhoto(''); }}
+                className="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-300 hover:file:bg-cyan-500/20"
+              />
             </div>
-            <form onSubmit={handleAddCandidate} className="space-y-4">
-               <select 
-                  required
-                  value={candPos}
-                  onChange={(e) => setCandPos(e.target.value)}
-                  className="glass-input appearance-none"
-               >
-                  <option value="">-- Select Position --</option>
-                  {positions.map(p => (
-                     <option key={p._id} value={p._id} className="bg-slate-800">{p.name}</option>
-                  ))}
-               </select>
-               <input 
-                  type="text" 
-                  required 
-                  value={candName}
-                  onChange={(e) => setCandName(e.target.value)}
-                  placeholder="Candidate Name"
-                  className="glass-input"
-               />
-               <div className="flex flex-col gap-2">
-                 <input 
-                    type="url" 
-                    value={candPhoto}
-                    onChange={(e) => { setCandPhoto(e.target.value); setCandPhotoFile(null); if (document.getElementById('cand-photo-file')) document.getElementById('cand-photo-file').value = ''; }}
-                    placeholder="Photo URL (e.g. https://example.com/photo.jpg)"
-                    className="glass-input"
-                 />
-                 <div className="flex items-center gap-2">
-                   <div className="h-px bg-slate-700 flex-1"></div>
-                   <span className="text-slate-500 text-sm">OR UPLOAD</span>
-                   <div className="h-px bg-slate-700 flex-1"></div>
-                 </div>
-                 <input
-                    type="file"
-                    id="cand-photo-file"
-                    accept="image/*"
-                    onChange={(e) => { setCandPhotoFile(e.target.files[0]); setCandPhoto(''); }}
-                    className="w-full text-sm text-slate-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-500 hover:file:bg-cyan-500/20"
-                 />
-               </div>
-               <button type="submit" className="btn-primary w-full">Register Candidate</button>
-            </form>
-         </div>
+            <button type="submit" className="btn-primary w-full py-2.5 text-sm">
+              Save Candidate
+            </button>
+          </form>
+        </div>
       </div>
 
-      {/* Live Monitor */}
-      <div className="glass-panel p-6">
-         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
-            <h3 className="text-xl font-bold">Live Admin Monitor</h3>
-            <button onClick={loadDashboardData} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm rounded border border-slate-600 transition-colors">
-               Refresh Data
-            </button>
-         </div>
-         
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {adminResults.length === 0 ? (
-               <p className="text-slate-500">No positions found.</p>
-            ) : (
-               adminResults.map(pos => (
-                  <div key={pos.positionId} className="bg-slate-900/50 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-                     <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                        <div>
-                           <h4 className="font-bold text-cyan-400">{pos.name}</h4>
-                           <div className="text-xs text-slate-400">Total Cast: {pos.totalVotes}</div>
-                        </div>
-                        <button onClick={() => handleDeletePosition(pos.positionId)} className="text-red-400 hover:text-red-300 p-1 rounded transition-colors" title="Delete Position">
-                           <Trash2 className="w-5 h-5" />
-                        </button>
-                     </div>
-                     <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 flex-1">
-                        {pos.candidates.sort((a,b) => b.votes - a.votes).map(c => (
-                           <div key={c.candidateId} className="flex flex-col items-center bg-slate-800/50 rounded-xl p-3 relative border border-slate-700/50 hover:border-cyan-500/30 transition-colors group">
-                              <button onClick={() => handleDeleteCandidate(c.candidateId)} className="absolute top-2 right-2 text-red-400 hover:text-red-300 p-1.5 bg-slate-900/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Candidate">
-                                 <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                              <img src={c.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=1e293b&color=06b6d4`} className="w-16 h-16 rounded-full object-cover mb-3 border-2 border-slate-700" alt={c.name} />
-                              <span className="text-slate-200 text-sm font-medium text-center leading-tight line-clamp-2 min-h-[2.5rem] flex items-center">{c.name}</span>
-                              <span className="font-bold text-white text-lg mt-2 bg-slate-900/80 px-3 py-1 rounded-full border border-slate-700/50">{c.votes} votes</span>
-                           </div>
-                        ))}
-                     </div>
+      {/* Live Admin Monitor */}
+      <div className="glass-panel p-6 sm:p-8 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+          <div>
+            <h3 className="text-lg font-heading font-bold text-white tracking-tight">Live Plurality Monitor</h3>
+            <p className="text-xs text-slate-400">Current vote tallies per position and candidate.</p>
+          </div>
+          <button 
+            onClick={loadDashboardData} 
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-xs font-mono text-slate-300 rounded-lg border border-white/[0.08] transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {adminResults.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No offices defined.</p>
+          ) : (
+            adminResults.map(pos => (
+              <div key={pos.positionId} className="bg-slate-950/60 rounded-xl border border-white/[0.06] overflow-hidden flex flex-col">
+                <div className="bg-slate-900/80 px-4 py-3 border-b border-white/[0.06] flex justify-between items-center">
+                  <div>
+                    <h4 className="font-heading font-bold text-cyan-300 text-base">{pos.name}</h4>
+                    <div className="text-xs font-mono text-slate-400 tabular-nums">Total Ballots Cast: {pos.totalVotes}</div>
                   </div>
-               ))
-            )}
-         </div>
+                  <button 
+                    onClick={() => handleDeletePosition(pos.positionId)} 
+                    className="text-red-400 hover:text-red-300 p-1.5 rounded-lg transition-colors hover:bg-red-500/10" 
+                    title="Delete Position"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1">
+                  {pos.candidates.sort((a,b) => b.votes - a.votes).map(c => (
+                    <div key={c.candidateId} className="flex flex-col items-center bg-slate-900/40 rounded-xl p-3 relative border border-white/[0.05] hover:border-cyan-500/30 transition-all group">
+                      <button 
+                        onClick={() => handleDeleteCandidate(c.candidateId)} 
+                        className="absolute top-1.5 right-1.5 text-red-400 hover:text-red-300 p-1 bg-slate-950/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" 
+                        title="Delete Candidate"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                      <img 
+                        src={c.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=0d172e&color=22d3ee`} 
+                        className="w-14 h-14 rounded-full object-cover mb-2 border border-white/[0.1]" 
+                        alt={c.name} 
+                      />
+                      <span className="text-slate-200 text-xs font-medium text-center line-clamp-2 min-h-[2rem] flex items-center font-heading">
+                        {c.name}
+                      </span>
+                      <span className="font-mono font-bold text-white text-xs mt-1.5 bg-slate-950 px-2.5 py-0.5 rounded-full border border-white/[0.08] tabular-nums">
+                        {c.votes} votes
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Vote Logs */}
-      <div className="glass-panel p-6 mt-8">
-         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
-            <h3 className="text-xl font-bold">Vote Logs</h3>
-            <button onClick={handleDownloadCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm rounded border border-slate-600 transition-colors">
-               <Download className="w-4 h-4" /> Download CSV
-            </button>
-         </div>
-         <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-               <thead className="text-xs uppercase bg-slate-800/50 text-slate-400">
-                  <tr>
-                     <th className="px-4 py-3">Voter Name</th>
-                     <th className="px-4 py-3">Email</th>
-                     <th className="px-4 py-3">Position</th>
-                     <th className="px-4 py-3">Candidate</th>
-                     <th className="px-4 py-3">Time</th>
-                     <th className="px-4 py-3 text-right">Actions</th>
+      {/* Vote Audit Logs */}
+      <div className="glass-panel p-6 sm:p-8 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+          <div>
+            <h3 className="text-lg font-heading font-bold text-white tracking-tight">Vote Audit Logs</h3>
+            <p className="text-xs text-slate-400">Timestamped record of individual ballot submissions.</p>
+          </div>
+          <button 
+            onClick={handleDownloadCSV} 
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-xs font-mono text-slate-200 rounded-lg border border-white/[0.08] transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-300">
+            <thead className="font-mono uppercase text-slate-400 bg-slate-950/60 border-b border-white/[0.06]">
+              <tr>
+                <th className="px-4 py-2.5">Voter Name</th>
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Position</th>
+                <th className="px-4 py-2.5">Candidate Choice</th>
+                <th className="px-4 py-2.5">Timestamp</th>
+                <th className="px-4 py-2.5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {voteLogs.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-4 py-6 text-center text-slate-500 italic">No votes cast yet in current session.</td>
+                </tr>
+              ) : (
+                voteLogs.map(log => (
+                  <tr key={log._id} className="hover:bg-white/[0.02]">
+                    <td className="px-4 py-2.5 font-medium text-white">{log.voterName}</td>
+                    <td className="px-4 py-2.5 font-mono text-slate-400">{log.voterEmail}</td>
+                    <td className="px-4 py-2.5 text-slate-300">{log.positionName}</td>
+                    <td className="px-4 py-2.5 text-cyan-300 font-medium">{log.candidateName}</td>
+                    <td className="px-4 py-2.5 font-mono text-slate-400">{new Date(log.votedAt).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button 
+                        onClick={() => handleDeleteVote(log._id)} 
+                        className="text-red-400 hover:text-red-300 p-1 rounded transition-colors" 
+                        title="Delete Vote"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
-               </thead>
-               <tbody>
-                  {voteLogs.length === 0 ? (
-                     <tr>
-                        <td colSpan="6" className="px-4 py-4 text-center text-slate-500">No votes recorded yet.</td>
-                     </tr>
-                  ) : (
-                     voteLogs.map(log => (
-                        <tr key={log._id} className="border-b border-slate-800 hover:bg-slate-800/30">
-                           <td className="px-4 py-3">{log.voterName}</td>
-                           <td className="px-4 py-3">{log.voterEmail}</td>
-                           <td className="px-4 py-3">{log.positionName}</td>
-                           <td className="px-4 py-3">{log.candidateName}</td>
-                           <td className="px-4 py-3">{new Date(log.votedAt).toLocaleString()}</td>
-                           <td className="px-4 py-3 text-right">
-                              <button onClick={() => handleDeleteVote(log._id)} className="text-red-400 hover:text-red-300 p-1 rounded transition-colors" title="Delete Vote">
-                                 <Trash2 className="w-4 h-4" />
-                              </button>
-                           </td>
-                        </tr>
-                     ))
-                  )}
-               </tbody>
-            </table>
-         </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       
       {/* Danger Zone */}
-      <div className="glass-panel p-6 mt-8 border-red-500/30 bg-red-950/10">
-         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-center sm:text-left">
-            <h3 className="text-xl font-bold text-red-400">Danger Zone</h3>
-         </div>
-         
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-900/50 rounded-xl border border-red-900/50 p-4">
-               <h4 className="font-bold text-slate-200 mb-2">Reset Casted Votes</h4>
-               <p className="text-sm text-slate-400 mb-4">This will delete all votes currently cast by students, resetting the tallies to 0. Candidates, positions, and eligible roster will remain intact.</p>
-               <button 
-                  onClick={async () => {
-                     if (window.confirm("Are you ABSOLUTELY sure you want to delete all casted votes? This cannot be undone.")) {
-                        try {
-                           const res = await fetch('/api/admin/votes', { method: 'DELETE' });
-                           if (res.ok) {
-                              showMessage('All votes have been successfully reset.', false);
-                              loadDashboardData();
-                           }
-                        } catch (e) {
-                           showMessage('Failed to reset votes.', true);
-                        }
-                     }
-                  }}
-                  className="px-4 py-2 bg-red-900/40 hover:bg-red-800 text-red-200 text-sm rounded border border-red-800 transition-colors w-full"
-               >
-                  Delete All Votes
-               </button>
-            </div>
+      <div className="glass-panel p-6 sm:p-8 border-red-500/30 bg-red-950/10">
+        <div className="mb-4">
+          <h3 className="text-lg font-heading font-bold text-red-400 tracking-tight">Administrative Danger Zone</h3>
+          <p className="text-xs text-slate-400">Irreversible actions that affect live election data.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-950/60 rounded-xl border border-red-900/40 p-4">
+            <h4 className="font-heading font-bold text-slate-200 text-sm mb-1">Reset All Cast Ballots</h4>
+            <p className="text-xs text-slate-400 mb-3 leading-relaxed">Deletes all voter submission records, resetting all tallies to zero. Candidate configurations and roster remain intact.</p>
+            <button 
+              onClick={async () => {
+                if (window.confirm("Are you ABSOLUTELY sure you want to delete all casted votes? This cannot be undone.")) {
+                  try {
+                    const res = await fetch('/api/admin/votes', { method: 'DELETE' });
+                    if (res.ok) {
+                      showMessage('All votes have been reset.', false);
+                      loadDashboardData();
+                    }
+                  } catch (e) {
+                    showMessage('Failed to reset votes.', true);
+                  }
+                }
+              }}
+              className="px-3 py-2 bg-red-900/30 hover:bg-red-900/50 text-red-300 text-xs font-mono font-medium rounded-lg border border-red-800/60 transition-colors w-full"
+            >
+              Purge Cast Ballots
+            </button>
+          </div>
 
-            <div className="bg-slate-900/50 rounded-xl border border-red-900/50 p-4">
-               <h4 className="font-bold text-slate-200 mb-2">Wipe Entire Election</h4>
-               <p className="text-sm text-slate-400 mb-4">This will completely wipe EVERYTHING: Votes, Candidates, and Positions. Use this to start a brand new election from scratch.</p>
-               <button 
-                  onClick={async () => {
-                     if (window.confirm("Are you ABSOLUTELY sure you want to wipe the entire election? ALL candidates, positions, and votes will be permanently deleted!")) {
-                        try {
-                           const res = await fetch('/api/admin/election', { method: 'DELETE' });
-                           if (res.ok) {
-                              showMessage('The entire election has been wiped.', false);
-                              loadDashboardData();
-                           }
-                        } catch (e) {
-                           showMessage('Failed to wipe election.', true);
-                        }
-                     }
-                  }}
-                  className="px-4 py-2 bg-red-900/40 hover:bg-red-800 text-red-200 text-sm rounded border border-red-800 transition-colors w-full font-bold"
-               >
-                  Wipe Election Session
-               </button>
-            </div>
-         </div>
+          <div className="bg-slate-950/60 rounded-xl border border-red-900/40 p-4">
+            <h4 className="font-heading font-bold text-slate-200 text-sm mb-1">Wipe Entire Election State</h4>
+            <p className="text-xs text-slate-400 mb-3 leading-relaxed">Completely purges all positions, registered candidates, and voter records to initialize a clean election.</p>
+            <button 
+              onClick={async () => {
+                if (window.confirm("Are you ABSOLUTELY sure you want to wipe the entire election? ALL candidates, positions, and votes will be permanently deleted!")) {
+                  try {
+                    const res = await fetch('/api/admin/election', { method: 'DELETE' });
+                    if (res.ok) {
+                      showMessage('The entire election has been wiped.', false);
+                      loadDashboardData();
+                    }
+                  } catch (e) {
+                    showMessage('Failed to wipe election.', true);
+                  }
+                }
+              }}
+              className="px-3 py-2 bg-red-900/50 hover:bg-red-900/80 text-red-200 text-xs font-mono font-bold rounded-lg border border-red-700 transition-colors w-full"
+            >
+              Wipe Election
+            </button>
+          </div>
+        </div>
       </div>
 
     </div>

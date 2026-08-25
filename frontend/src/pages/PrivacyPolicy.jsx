@@ -1,53 +1,79 @@
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Shield } from 'lucide-react';
+
 const PrivacyPolicy = () => {
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <div className="glass-panel p-8 md:p-10 space-y-8">
-        <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400/80 mb-3">Privacy Policy</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">How ClassVote handles voter data</h2>
+    <div className="max-w-3xl mx-auto pb-24 px-4">
+      {/* Back button */}
+      <div className="mb-6">
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-2 text-xs font-mono font-medium uppercase tracking-wider text-slate-400 hover:text-cyan-300 transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+        </Link>
+      </div>
+
+      <div className="glass-panel p-8 sm:p-12 space-y-10">
+        {/* Header */}
+        <div className="border-b border-white/[0.08] pb-6">
+          <div className="badge-kicker mb-3 inline-flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Compliance & Data Protection</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-heading font-black text-white tracking-tight">
+            Voter Data Privacy Notice
+          </h1>
+          <p className="text-slate-400 text-sm mt-2 font-sans">
+            How voter identity, authentication records, and ballot selections are handled securely.
+          </p>
         </div>
 
-        <section className="space-y-3 text-slate-300 leading-7">
-          <h3 className="text-xl font-semibold text-white">Data collected</h3>
-          <p>
-            ClassVote collects the name and email address entered on the entry page, the eligible
-            voter record used to verify access, and the ballot selections submitted for each
-            position.
+        {/* Section 1 */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-cyan-400">01.</span>
+            <h2 className="text-lg font-heading font-bold text-white tracking-tight">Data Collected</h2>
+          </div>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-sans pl-6">
+            ClassVote collects the full name and institutional email address submitted on the authentication page, 
+            cross-references eligible voter roster records, and records the submitted candidate selections for each office.
           </p>
         </section>
 
-        <section className="space-y-3 text-slate-300 leading-7">
-          <h3 className="text-xl font-semibold text-white">How the data is used</h3>
-          <p>
-            The data is used to confirm that a voter is on the eligible roster, prevent duplicate
-            voting, store election results, and display live vote counts to the admin or to the
-            public after results are published.
+        {/* Section 2 */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-cyan-400">02.</span>
+            <h2 className="text-lg font-heading font-bold text-white tracking-tight">Purpose & Usage</h2>
+          </div>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-sans pl-6">
+            Collected data is strictly used to confirm eligibility on the official roster, enforce single-ballot constraints,
+            compile election results, and display certified tallies once results are officially declared.
           </p>
         </section>
 
-        <section className="space-y-3 text-slate-300 leading-7">
-          <h3 className="text-xl font-semibold text-white">Storage and retention</h3>
-          <p>
-            Election data is stored in MongoDB for the duration of the election and may be kept for
-            audit or record-keeping purposes after voting ends. Admin credentials are stored only in
-            server environment variables.
+        {/* Section 3 */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-cyan-400">03.</span>
+            <h2 className="text-lg font-heading font-bold text-white tracking-tight">Storage & Retention</h2>
+          </div>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-sans pl-6">
+            Election records are encrypted in transit and stored within a secured database for the duration of the 
+            election and subsequent audit period. Administrative secrets are stored securely in environment variables.
           </p>
         </section>
 
-        <section className="space-y-3 text-slate-300 leading-7">
-          <h3 className="text-xl font-semibold text-white">Access and security</h3>
-          <p>
-            Admin-only actions are protected on the backend. Student-facing pages do not expose
-            admin controls, and the app uses request validation, rate limiting, and cookie-based
-            admin sessions to reduce abuse.
-          </p>
-        </section>
-
-        <section className="space-y-3 text-slate-300 leading-7">
-          <h3 className="text-xl font-semibold text-white">Contact</h3>
-          <p>
-            For questions about this policy or the election setup, contact the admin or the person
-            running the election.
+        {/* Section 4 */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-cyan-400">04.</span>
+            <h2 className="text-lg font-heading font-bold text-white tracking-tight">Access Control & Security</h2>
+          </div>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-sans pl-6">
+            Administrative endpoints require cryptographic authorization. Rate limiting, origin verification, and 
+            isolated sessions safeguard the system against automated abuse.
           </p>
         </section>
       </div>

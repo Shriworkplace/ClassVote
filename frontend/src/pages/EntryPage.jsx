@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Alert from '../components/Alert';
-import { LogIn, ArrowRight } from 'lucide-react';
+import { LogIn, ArrowRight, Shield, Lock, Loader2 } from 'lucide-react';
 
 const EntryPage = () => {
   const [name, setName] = useState('');
@@ -39,57 +39,89 @@ const EntryPage = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
+    <div className="min-h-[78vh] flex items-center justify-center px-4 py-8">
       <motion.div 
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="glass-panel w-full max-w-md p-8 relative overflow-hidden"
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="glass-panel w-full max-w-md p-8 sm:p-10 relative overflow-hidden"
       >
-        {/* Decorative background blur */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Ambient Top Glow */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
         
         <div className="text-center mb-8 relative z-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 rounded-2xl mx-auto flex items-center justify-center mb-4 border border-cyan-500/30">
-            <LogIn className="w-8 h-8 text-cyan-400" />
+          <div className="w-14 h-14 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl mx-auto flex items-center justify-center mb-5 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+            <LogIn className="w-7 h-7 text-cyan-400" />
           </div>
-          <h2 className="text-3xl font-bold mb-2">Voter Access</h2>
-          <p className="text-slate-400">Verify your identity to proceed to the ballot.</p>
+          
+          <div className="badge-kicker mb-3">
+            <span>Roster Check</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-white tracking-tight mb-2">
+            Voter Authentication
+          </h2>
+          <p className="text-sm text-slate-300 max-w-xs mx-auto leading-relaxed">
+            Enter your official student credentials to access the active election ballot.
+          </p>
         </div>
 
         <Alert message={error} type="error" />
 
         <form onSubmit={handleSubmit} className="relative z-10 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">Full Name</label>
+            <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              Full Name
+            </label>
             <input 
               type="text" 
               required 
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. John Doe"
+              placeholder="e.g. Alex Johnson"
               className="glass-input"
             />
           </div>
+          
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">Email Address</label>
+            <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              Student Email
+            </label>
             <input 
               type="email" 
               required 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. john@student.edu"
+              placeholder="e.g. alex@student.edu"
               className="glass-input"
             />
           </div>
+
           <button 
             type="submit" 
             disabled={isLoading}
-            className="btn-primary w-full mt-4 group"
+            className="btn-primary w-full mt-2 py-3.5 group text-base"
           >
-            {isLoading ? 'Verifying...' : 'Proceed to Ballot'}
-            {!isLoading && <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />}
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Verifying Roster...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                Proceed to Ballot
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
+            )}
           </button>
         </form>
+
+        <div className="mt-6 pt-6 border-t border-white/[0.06] text-center">
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Single-vote enforcement active</span>
+          </p>
+        </div>
       </motion.div>
     </div>
   );
