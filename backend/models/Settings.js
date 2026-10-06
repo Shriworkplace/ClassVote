@@ -16,6 +16,10 @@ const settingsSchema = new mongoose.Schema({
     scheduledCloseTime: {
         type: Date,
         default: null
+    },
+    expectedVoters: {
+        type: Number,
+        default: 0
     }
 });
 

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Alert from '../components/Alert';
 import { Check, CheckCircle2, ChevronRight, User, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
+import BallotReviewModal from '../components/BallotReviewModal';
+import { offlineVault } from '../utils/offlineVault';
 
 const VotingPage = () => {
   const [positions, setPositions] = useState([]);
@@ -15,9 +17,10 @@ const VotingPage = () => {
   const navigate = useNavigate();
   const voterName = sessionStorage.getItem('voterName');
   const voterEmail = sessionStorage.getItem('voterEmail');
+  const voterEnrollmentNo = sessionStorage.getItem('voterEnrollmentNo');
 
   useEffect(() => {
-    if (!voterName || !voterEmail) {
+    if (!voterName || (!voterEmail && !voterEnrollmentNo)) {
       navigate('/entry');
       return;
     }
@@ -32,7 +35,7 @@ const VotingPage = () => {
       }
     };
     fetchPositions();
-  }, [navigate, voterName, voterEmail]);
+  }, [navigate, voterName, voterEmail, voterEnrollmentNo]);
 
   const handleSelect = (positionId, candidateId) => {
     setSelections(prev => {
@@ -47,14 +50,20 @@ const VotingPage = () => {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (Object.keys(selections).length !== positions.length) {
       setError('Please cast a vote for each position before submitting your ballot.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    setError('');
+    setIsReviewOpen(true);
+  };
 
+  const handleConfirmedSubmit = async () => {
     setIsSubmitting(true);
     const submission = Object.keys(selections).map(posId => ({
       positionId: posId,
@@ -62,24 +71,60 @@ const VotingPage = () => {
     }));
 
     try {
+      const payload = {
+        name: voterName,
+        email: voterEmail || undefined,
+        enrollmentNo: voterEnrollmentNo || undefined,
+        selections: submission
+      };
+
+      if (!navigator.onLine) {
+        // Offline vault fallback
+        offlineVault.saveOfflineBallot({
+          voter: { name: voterName, email: voterEmail, enrollmentNo: voterEnrollmentNo },
+          selections
+        });
+        sessionStorage.removeItem('voterName');
+        sessionStorage.removeItem('voterEmail');
+        sessionStorage.removeItem('voterEnrollmentNo');
+        setIsReviewOpen(false);
+        setSuccess('Offline Mode: Your ballot has been recorded securely in the local vault and will sync once internet is restored.');
+        setSubmitted(true);
+        setIsSubmitting(false);
+        return;
+      }
+
       const res = await fetch('/api/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: voterName, email: voterEmail, selections: submission })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
 
       if (res.ok) {
         sessionStorage.removeItem('voterName');
         sessionStorage.removeItem('voterEmail');
-        setSuccess(data.message);
+        sessionStorage.removeItem('voterEnrollmentNo');
+        setIsReviewOpen(false);
+        setSuccess(data.message || 'Your vote has been cast anonymously.');
         setSubmitted(true);
       } else {
         setError(data.error);
+        setIsReviewOpen(false);
         setIsSubmitting(false);
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+    } catch {
+      // If network fails during fetch, save offline
+      offlineVault.saveOfflineBallot({
+        voter: { name: voterName, email: voterEmail, enrollmentNo: voterEnrollmentNo },
+        selections
+      });
+      sessionStorage.removeItem('voterName');
+      sessionStorage.removeItem('voterEmail');
+      sessionStorage.removeItem('voterEnrollmentNo');
+      setIsReviewOpen(false);
+      setSuccess('Your ballot was saved to the offline vault and will sync when connection returns.');
+      setSubmitted(true);
       setIsSubmitting(false);
     }
   };
@@ -129,8 +174,20 @@ const VotingPage = () => {
         className="glass-panel mb-10 p-6 sm:p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
       >
         <div>
-          <div className="badge-kicker mb-2">
-            <span>Verified Voter Session</span>
+          <div className="flex flex-wrap items-center gap-2 mb-2.5">
+            <div className="badge-kicker">
+              <span>Verified Voter Session</span>
+            </div>
+            {voterEnrollmentNo && (
+              <span className="badge-neutral font-mono text-[11px] text-cyan-300 border-cyan-500/30">
+                En No: {voterEnrollmentNo}
+              </span>
+            )}
+            {voterEmail && (
+              <span className="badge-neutral font-mono text-[11px] text-slate-400">
+                {voterEmail}
+              </span>
+            )}
           </div>
           <h2 className="text-2xl sm:text-4xl font-heading font-black text-white tracking-tight">
             Welcome, <span className="text-cyan-400">{voterName}</span>
@@ -314,6 +371,16 @@ const VotingPage = () => {
           </motion.div>
         </form>
       )}
+
+      {/* Secret Ballot Confirmation Modal */}
+      <BallotReviewModal
+        isOpen={isReviewOpen}
+        onClose={() => setIsReviewOpen(false)}
+        onConfirm={handleConfirmedSubmit}
+        positions={positions}
+        selectedCandidates={selections}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };

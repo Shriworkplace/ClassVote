@@ -47,15 +47,27 @@ flowchart LR
 ### Voter Flow
 
 1. Student opens `/entry`.
-2. The entry form posts `{ name, email }` to `POST /api/verify`.
-3. The backend checks `EligibleVoter` for a matching email.
-4. If allowed, the frontend stores the voter identity in `sessionStorage` and navigates to `/voting`.
-5. The voting page fetches `GET /api/positions`.
-6. The student selects one candidate per position.
-7. The page posts all selections to `POST /api/vote` in one request.
-8. The backend validates status, eligibility, and duplicate voting, then writes the voter plus each ballot row.
-9. The backend emits `results-updated` over Socket.io.
-10. The voter sees confirmation, and any connected results view refreshes.
+2. The entry form posts `{ name, email, enrollmentNo }` to `POST /api/verify`.
+3. The backend checks `EligibleVoter` for matching `email` and `enrollmentNo`.
+4. The backend validates compulsory name matching against the registered student name.
+5. The backend verifies that neither this email nor enrollment number has already been used to vote.
+6. If allowed, the frontend stores the voter identity (`voterName`, `voterEmail`, `voterEnrollmentNo`) in `sessionStorage` and navigates to `/voting`.
+7. The voting page fetches `GET /api/positions`.
+8. The student selects one candidate per position.
+9. The page posts all selections along with student credentials to `POST /api/vote` in one request.
+10. The backend validates status, eligibility, compulsory name match, and duplicate voting, then writes the voter plus each ballot row.
+11. The backend emits `results-updated` over Socket.io.
+12. The voter sees confirmation, and any connected results view refreshes.
+
+### In-Person Kiosk & Offline Flow (`/kiosk`)
+
+1. Booth laptop/tablet opens `/kiosk` in full-screen station mode.
+2. Students queue up one-by-one; student or officer searches their Name or Enrollment Number from the roster.
+3. System verifies eligibility and confirms the student has not yet voted.
+4. Student enters private ballot mode, selects their candidates, and reviews choices in the Ballot Review Modal.
+5. Ballot is cast with strict anonymity (turnout attendance recorded in `Voter`, ballot choices decoupled in `Vote`).
+6. A success confirmation screen displays an automated 3-second countdown ring, automatically returning to the search queue for the next voter in line.
+7. If network connectivity drops, ballots are stored securely in the browser's persistent `offlineVault` (localStorage/IndexedDB) and can be synchronized to the database when connection is restored.
 
 ### Results Flow
 
@@ -69,7 +81,7 @@ flowchart LR
 1. Admin opens `/admin`.
 2. The dashboard posts the password to `POST /api/admin/login`.
 3. The backend issues an HTTP-only JWT cookie.
-4. Protected admin routes are then available for roster sync, position creation, candidate creation, settings changes, and live result inspection.
+4. Protected admin routes are then available for roster management (via dedicated Voter Form or CSV upload), position creation, candidate creation, settings changes, live result inspection, launching Kiosk mode, and syncing offline ballots.
 5. Admin can also reset votes or wipe the election session.
 
 ## 4. Data Model
@@ -97,26 +109,26 @@ One person running for one position.
 The roster gate used before voting begins.
 
 ```js
-{ _id, name, email }
+{ _id, name, email, enrollmentNo }
 ```
 
 ### [Voter](backend/models/Voter.js)
 
-Tracks who has already submitted a ballot.
+Tracks attendance / who has cast a ballot to prevent duplicate voting.
 
 ```js
-{ _id, name, email, votedAt }
+{ _id, name, email, enrollmentNo, votedAt, channel }
 ```
 
 ### [Vote](backend/models/Vote.js)
 
-One row per voter per position.
+Anonymous secret ballot submissions. To enforce the democratic **Secret Ballot principle**, votes are strictly decoupled from voter identity (`voterId` is omitted). Administrators can see who voted, but cannot see who voted for whom.
 
 ```js
-{ _id, voterId, positionId, candidateId, votedAt }
+{ _id, positionId, candidateId, votedAt }
 ```
 
-The unique index on `(voterId, positionId)` prevents duplicate ballots for the same role.
+Compound indexing on `(positionId, candidateId)` provides fast tally counts. Duplicate voting is prevented at the voter level by unique constraints on `Voter` (`email` and `enrollmentNo`).
 
 ### [Settings](backend/models/Settings.js)
 

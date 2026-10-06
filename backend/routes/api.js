@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Position = require('../models/Position');
 const Candidate = require('../models/Candidate');
 const Settings = require('../models/Settings');
@@ -8,10 +9,13 @@ const Voter = require('../models/Voter');
 const Vote = require('../models/Vote');
 const rateLimit = require('express-rate-limit');
 const {
+    areNamesMatching,
     isNonEmptyString,
     isValidEmail,
+    isValidEnrollmentNo,
     isValidObjectId,
     normalizeEmail,
+    normalizeEnrollmentNo,
     toTrimmedString,
 } = require('../utils/validation');
 
@@ -29,28 +33,103 @@ const voteLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+const kioskVoteLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+function extractVoterCredentials(body) {
+    const { name, email, enrollmentNo, enNo, rollNo, roll_no, roll, identifier } = body ?? {};
+    const cleanName = toTrimmedString(name);
+
+    const rawEmail = toTrimmedString(email);
+    const rawEnNo = toTrimmedString(enrollmentNo || enNo || rollNo || roll_no || roll);
+    const rawIdentifier = toTrimmedString(identifier);
+
+    let lookupEmail = rawEmail ? normalizeEmail(rawEmail) : null;
+    let lookupEnNo = rawEnNo ? normalizeEnrollmentNo(rawEnNo) : null;
+
+    if (rawIdentifier) {
+        if (rawIdentifier.includes('@')) {
+            lookupEmail = normalizeEmail(rawIdentifier);
+        } else {
+            lookupEnNo = normalizeEnrollmentNo(rawIdentifier);
+        }
+    }
+
+    return { cleanName, lookupEmail, lookupEnNo };
+}
+
 module.exports = function(io) {
     
-    // Check if voter is eligible
+    // Check if voter is eligible (email OR enrollment number)
     router.post('/verify', verifyLimiter, async (req, res) => {
         try {
-            const { name, email } = req.body ?? {};
-            const cleanName = toTrimmedString(name);
-            const cleanEmail = normalizeEmail(email);
+            const { cleanName, lookupEmail, lookupEnNo } = extractVoterCredentials(req.body);
 
             if (!isNonEmptyString(cleanName, 120)) {
-                return res.status(400).json({ error: 'Name is required' });
+                return res.status(400).json({ error: 'Full Name is compulsory and required.' });
             }
 
-            if (!isValidEmail(cleanEmail)) {
-                return res.status(400).json({ error: 'Email is required and must be valid' });
+            if (!lookupEmail && !lookupEnNo) {
+                return res.status(400).json({
+                    error: 'Please enter either your College Email or Enrollment Number (En no.).'
+                });
             }
 
-            const voter = await EligibleVoter.findOne({ email: cleanEmail }).lean();
+            if (lookupEmail && !isValidEmail(lookupEmail)) {
+                return res.status(400).json({ error: 'Please enter a valid college email address.' });
+            }
+
+            if (lookupEnNo && !isValidEnrollmentNo(lookupEnNo)) {
+                return res.status(400).json({ error: 'Please enter a valid Enrollment Number (En no.).' });
+            }
+
+            // Find matching voter by Email OR Enrollment Number
+            const orConditions = [];
+            if (lookupEmail) orConditions.push({ email: lookupEmail });
+            if (lookupEnNo) orConditions.push({ enrollmentNo: lookupEnNo });
+
+            const voter = await EligibleVoter.findOne({ $or: orConditions }).lean();
+
             if (!voter) {
-                return res.status(403).json({ error: 'You are not on the eligible voters list. Contact the admin.' });
+                return res.status(403).json({
+                    error: 'You are not on the eligible college voters roster. Contact the administrator.'
+                });
             }
-            res.json({ success: true, message: 'Verified' });
+
+            // Compulsory Name Matching check: Typed name must match the official registered roster name
+            if (!areNamesMatching(cleanName, voter.name)) {
+                return res.status(400).json({
+                    error: `The name typed ("${cleanName}") does not match the official registered name for this student in college records. Please type your name exactly as registered.`
+                });
+            }
+
+            // Check if this student has already voted (by official email or official enrollmentNo)
+            const alreadyVotedConditions = [];
+            if (voter.email) alreadyVotedConditions.push({ email: voter.email });
+            if (voter.enrollmentNo) alreadyVotedConditions.push({ enrollmentNo: voter.enrollmentNo });
+
+            if (alreadyVotedConditions.length > 0) {
+                const alreadyVoted = await Voter.findOne({ $or: alreadyVotedConditions }).lean();
+                if (alreadyVoted) {
+                    return res.status(403).json({
+                        error: 'This student has already cast their ballot in this election.'
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                message: 'Verified',
+                voter: {
+                    name: voter.name,
+                    email: voter.email || '',
+                    enrollmentNo: voter.enrollmentNo || ''
+                }
+            });
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Server error' });
@@ -74,16 +153,23 @@ module.exports = function(io) {
     // Submit votes
     router.post('/vote', voteLimiter, async (req, res) => {
         try {
-            const { name, email, selections } = req.body ?? {};
-            const cleanName = toTrimmedString(name);
-            const cleanEmail = normalizeEmail(email);
+            const { cleanName, lookupEmail, lookupEnNo } = extractVoterCredentials(req.body);
+            const { selections } = req.body ?? {};
 
             if (!isNonEmptyString(cleanName, 120)) {
                 return res.status(400).json({ error: 'Name is required' });
             }
 
-            if (!isValidEmail(cleanEmail)) {
-                return res.status(400).json({ error: 'Valid email is required' });
+            if (!lookupEmail && !lookupEnNo) {
+                return res.status(400).json({ error: 'College Email or Enrollment Number (En no.) is required' });
+            }
+
+            if (lookupEmail && !isValidEmail(lookupEmail)) {
+                return res.status(400).json({ error: 'Valid college email is required' });
+            }
+
+            if (lookupEnNo && !isValidEnrollmentNo(lookupEnNo)) {
+                return res.status(400).json({ error: 'Valid Enrollment Number (En no.) is required' });
             }
 
             if (!Array.isArray(selections) || selections.length === 0) {
@@ -149,27 +235,50 @@ module.exports = function(io) {
                 }
             }
 
-            // Check eligibility again
-            const eligible = await EligibleVoter.findOne({ email: cleanEmail }).lean();
+            // Check eligibility (email OR enrollmentNo)
+            const orConditions = [];
+            if (lookupEmail) orConditions.push({ email: lookupEmail });
+            if (lookupEnNo) orConditions.push({ enrollmentNo: lookupEnNo });
+
+            const eligible = await EligibleVoter.findOne({ $or: orConditions }).lean();
+
             if (!eligible) {
-                return res.status(403).json({ error: 'Not eligible to vote.' });
+                return res.status(403).json({ error: 'You are not on the eligible college voters roster.' });
             }
 
-            // Check if already voted
-            const existingVoter = await Voter.findOne({ email: cleanEmail }).lean();
-            if (existingVoter) {
-                return res.status(403).json({ error: 'This email has already been used to vote.' });
+            // Compulsory name matching check
+            if (!areNamesMatching(cleanName, eligible.name)) {
+                return res.status(400).json({
+                    error: `The name typed ("${cleanName}") does not match the official college roster record for this student.`
+                });
             }
 
-            // Record the voter using the official roster name
-            const newVoter = new Voter({ name: eligible.name, email: cleanEmail });
+            // Check if already voted (by official email or official enrollmentNo)
+            const alreadyVotedConditions = [];
+            if (eligible.email) alreadyVotedConditions.push({ email: eligible.email });
+            if (eligible.enrollmentNo) alreadyVotedConditions.push({ enrollmentNo: eligible.enrollmentNo });
+
+            if (alreadyVotedConditions.length > 0) {
+                const existingVoter = await Voter.findOne({ $or: alreadyVotedConditions }).lean();
+                if (existingVoter) {
+                    return res.status(403).json({ error: 'This student has already cast their ballot.' });
+                }
+            }
+
+            // Record voter attendance to prevent duplicate voting (Secret Ballot principle)
+            const channel = req.body?.channel === 'manual_kiosk' ? 'manual_kiosk' : 'online';
+            const newVoter = new Voter({
+                name: eligible.name,
+                email: eligible.email,
+                enrollmentNo: eligible.enrollmentNo,
+                channel
+            });
             await newVoter.save();
 
-            // Insert all votes
+            // Insert anonymous ballot selections decoupled from voter identity
             const votesToInsert = [...normalizedSelections.entries()].map(([positionId, candidateId]) => ({
-                voterId: newVoter._id,
-                positionId,
-                candidateId
+                positionId: new mongoose.Types.ObjectId(positionId),
+                candidateId: new mongoose.Types.ObjectId(candidateId)
             }));
 
             await Vote.insertMany(votesToInsert);
@@ -184,6 +293,108 @@ module.exports = function(io) {
                  return res.status(403).json({ error: 'Duplicate vote detected.' });
             }
             res.status(500).json({ error: 'Server error' });
+        }
+    });
+
+    // In-Person Kiosk Vote (Anonymous Polling Booth - No voter name or email required)
+    router.post('/kiosk-vote', kioskVoteLimiter, async (req, res) => {
+        try {
+            let { selections } = req.body ?? {};
+
+            // Normalize selections from object format { posId: candId } to array if needed
+            if (selections && typeof selections === 'object' && !Array.isArray(selections)) {
+                selections = Object.entries(selections).map(([positionId, candidateId]) => ({
+                    positionId,
+                    candidateId
+                }));
+            }
+
+            if (!Array.isArray(selections) || selections.length === 0) {
+                return res.status(400).json({ error: 'Please make your candidate selections.' });
+            }
+
+            const positions = await Position.find().lean();
+            if (positions.length === 0) {
+                return res.status(400).json({ error: 'No election positions are configured yet.' });
+            }
+
+            if (selections.length !== positions.length) {
+                return res.status(400).json({ error: 'Please select one candidate for every position.' });
+            }
+
+            const candidateLookup = new Map();
+            for (const position of positions) {
+                const candidates = await Candidate.find({ positionId: position._id }).lean();
+                candidateLookup.set(String(position._id), new Set(candidates.map((c) => String(c._id))));
+            }
+
+            const normalizedSelections = new Map();
+            for (const selection of selections) {
+                const positionId = selection?.positionId;
+                const candidateId = selection?.candidateId;
+
+                if (!isValidObjectId(positionId) || !isValidObjectId(candidateId)) {
+                    return res.status(400).json({ error: 'Invalid candidate selection detected.' });
+                }
+
+                if (normalizedSelections.has(positionId)) {
+                    return res.status(400).json({ error: 'Duplicate candidate selections are not allowed.' });
+                }
+
+                const validCandidates = candidateLookup.get(positionId);
+                if (!validCandidates || !validCandidates.has(candidateId)) {
+                    return res.status(400).json({ error: 'Invalid candidate selected for a position.' });
+                }
+
+                normalizedSelections.set(positionId, candidateId);
+            }
+
+            if (normalizedSelections.size !== positions.length) {
+                return res.status(400).json({ error: 'Please select one candidate for every position.' });
+            }
+
+            // Check if voting is open
+            const settings = await Settings.findOne();
+            if (settings) {
+                const now = new Date();
+                let isOpen = settings.votingOpen;
+                
+                if (settings.scheduledStartTime && settings.scheduledCloseTime) {
+                    isOpen = (now >= settings.scheduledStartTime && now <= settings.scheduledCloseTime);
+                } else if (settings.scheduledStartTime) {
+                    isOpen = (now >= settings.scheduledStartTime);
+                } else if (settings.scheduledCloseTime) {
+                    isOpen = (now <= settings.scheduledCloseTime);
+                }
+
+                if (!isOpen) {
+                    return res.status(403).json({ error: 'Voting is currently closed.' });
+                }
+            }
+
+            // Count turnout in Voter attendance log (Anonymous in-person voter count)
+            const kioskCount = await Voter.countDocuments({ channel: 'manual_kiosk' });
+            const newVoter = new Voter({
+                name: `In-Person Booth Voter #${kioskCount + 1}`,
+                channel: 'manual_kiosk'
+            });
+            await newVoter.save();
+
+            // Insert anonymous ballot selections
+            const votesToInsert = [...normalizedSelections.entries()].map(([positionId, candidateId]) => ({
+                positionId: new mongoose.Types.ObjectId(positionId),
+                candidateId: new mongoose.Types.ObjectId(candidateId)
+            }));
+
+            await Vote.insertMany(votesToInsert);
+
+            // Broadcast results update for real-time live standings
+            io.emit('results-updated');
+
+            res.json({ success: true, message: 'In-person ballot recorded successfully.' });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Server error while recording kiosk ballot' });
         }
     });
 
@@ -215,7 +426,8 @@ module.exports = function(io) {
                 votingOpen: settings.votingOpen, 
                 resultsPublished: settings.resultsPublished,
                 scheduledStartTime: settings.scheduledStartTime,
-                scheduledCloseTime: settings.scheduledCloseTime
+                scheduledCloseTime: settings.scheduledCloseTime,
+                expectedVoters: settings.expectedVoters || 0
             });
         } catch (err) {
             console.error(err);

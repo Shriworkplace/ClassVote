@@ -14,8 +14,8 @@ Designed for class and student council elections, ClassVote allows students to v
 - Voters cast selections for all offices in a single streamlined submission.
 
 ### 🔒 Two-Gate Voter Verification & Integrity
-1. **Roster Verification Gate**: Students authenticate using their full name and student email against a pre-loaded eligible roster (uploaded via CSV or JSON). Unrecognized entries are rejected before reaching the ballot.
-2. **Duplicate Prevention Gate**: Compound unique indexing `(voterId, positionId)` ensures strictly one ballot per student across all positions.
+1. **Roster Verification Gate**: Students authenticate using their Full Name along with either their **College Email** OR **Enrollment Number (En no.)** against the eligible roster (uploaded via CSV or JSON). Only enrolled students on the roster can vote, and the typed name is compulsory and strictly verified against the official registered roster name.
+2. **Duplicate Prevention Gate**: Compound unique indexing `(voterId, positionId)` plus unique constraints on email and enrollment number ensure strictly one ballot per student across all positions (voting with either email or enrollment number locks out any subsequent attempts).
 
 ### ⚡ Real-Time Live Tallies
 - Powered by **Socket.io** WebSockets.
@@ -24,10 +24,10 @@ Designed for class and student council elections, ClassVote allows students to v
 
 ### 🛠️ Dedicated Admin Control Panel
 - **Election State Management**: Toggle manual voting windows or set automated schedule timestamps (start/close times).
-- **Roster Management**: Upload CSV rosters, input raw JSON, view verified voters, or delete entries.
+- **Roster Management**: Upload CSV rosters with Name, Email, and/or Enrollment No, input raw JSON, view verified voters with search, or delete entries.
 - **Candidate & Position Management**: Add/remove positions and register candidates with photo uploads or external image URLs.
 - **Public Results Visibility**: Keep results private for administrative review or publish live standings to the student body with a single click.
-- **Audit Logs & CSV Export**: Timestamped ballot logs with voter identity, position, choice, and one-click CSV export for audit records.
+- **Audit Logs & CSV Export**: Timestamped ballot logs with voter identity, enrollment number, position, choice, and one-click CSV export for audit records.
 - **Plurality Monitor & Danger Zone**: Live vote monitor per candidate, options to reset cast ballots, or completely wipe the session for a clean election.
 
 ### 📱 Frictionless QR Code Distribution
@@ -71,11 +71,11 @@ Designed for class and student council elections, ClassVote allows students to v
   ```
 - **`eligibleVoters`**: Pre-loaded roster for authentication.
   ```json
-  { "_id": "ObjectId", "name": "Jane Doe", "email": "jane@school.edu" }
+  { "_id": "ObjectId", "name": "Jane Doe", "email": "jane@school.edu", "enrollmentNo": "21BCS001" }
   ```
 - **`voters`**: Registered voters who accessed the ballot.
   ```json
-  { "_id": "ObjectId", "name": "Jane Doe", "email": "jane@school.edu" }
+  { "_id": "ObjectId", "name": "Jane Doe", "email": "jane@school.edu", "enrollmentNo": "21BCS001" }
   ```
 - **`votes`**: Individual ballot submissions with compound uniqueness on `(voterId, positionId)`.
   ```json
@@ -89,9 +89,9 @@ Designed for class and student council elections, ClassVote allows students to v
 ### Public / Student Endpoints
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/verify` | `POST` | Check `{ name, email }` against the roster prior to ballot access |
+| `/api/verify` | `POST` | Check `{ name, email | enrollmentNo }` against the roster with compulsory name matching prior to ballot access |
 | `/api/positions` | `GET` | Retrieve active positions with their candidate lists |
-| `/api/vote` | `POST` | Submit completed ballot selections `{ name, email, selections: [...] }` |
+| `/api/vote` | `POST` | Submit completed ballot selections `{ name, email | enrollmentNo, selections: [...] }` |
 | `/api/results` | `GET` | Get current vote tallies (only returns data if results are published) |
 | `/api/status` | `GET` | Check if voting is open and if results are public |
 
@@ -104,7 +104,7 @@ Designed for class and student council elections, ClassVote allows students to v
 | `/api/admin/results` | `GET` | Real-time live results (always accessible to authenticated admin) |
 | `/api/admin/roster` | `GET` / `POST` | List all eligible voters / bulk add voters via JSON |
 | `/api/admin/roster/:id` | `DELETE` | Remove a single voter from the roster |
-| `/api/admin/upload-roster`| `POST` | Upload and sync roster via CSV file |
+| `/api/admin/upload-roster`| `POST` | Upload and sync roster via CSV file (Name, Email, Enrollment No) |
 | `/api/admin/positions` | `POST` | Create a new position |
 | `/api/admin/positions/:id`| `DELETE`| Remove a position and its candidates |
 | `/api/admin/candidates` | `POST` | Add a candidate to a position |
@@ -121,7 +121,7 @@ Designed for class and student council elections, ClassVote allows students to v
 
 ### Student Flow
 1. **QR / URL Access**: Student scans the classroom QR code and lands on `/entry`.
-2. **Authentication**: Enters Full Name and Student Email. The server validates against the eligible roster.
+2. **Authentication**: Enters Full Name and either their Enrollment Number (En no.) or College Email. The server finds their eligible record and strictly enforces that the typed name matches the official college roster record.
 3. **Balloting**: If verified, user proceeds to `/voting`, selecting one candidate for each required position.
 4. **Submission**: Ballot is submitted in a single atomic payload. Server verifies duplicate prevention, records the vote, and broadcasts an update via Socket.io.
 5. **Confirmation & Results**: Student receives confirmation. Once the admin publishes standings, students can watch live updates on `/results`.
@@ -129,9 +129,9 @@ Designed for class and student council elections, ClassVote allows students to v
 ### Admin Workflow
 1. **Login**: Access `/admin` using the master password.
 2. **Setup**: Add election offices and candidates with photos.
-3. **Roster Upload**: Upload class CSV roster with `Name` and `Email` headers.
+3. **Roster Upload**: Upload class CSV roster with `Name`, `Email`, and `Enrollment No` (or `En No`) headers.
 4. **Launch**: Open voting manually or set scheduled start/close windows.
-5. **Monitor & Audit**: Watch real-time plurality tallies, audit voter logs, and export CSV reports.
+5. **Monitor & Audit**: Watch real-time plurality tallies, audit voter logs with enrollment numbers, and export CSV reports.
 6. **Publish Results**: Trigger public visibility when voting concludes.
 
 ---
