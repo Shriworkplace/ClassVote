@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Check, Maximize2, Minimize2, CheckCircle2, 
   AlertCircle, ChevronRight, Lock, Vote, 
-  Keyboard, Volume2, VolumeX, Sparkles, Zap
+  Volume2, VolumeX, Sparkles, Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BallotReviewModal from '../components/BallotReviewModal';
@@ -73,7 +73,7 @@ const KioskPage = () => {
   const [flashedCandidateId, setFlashedCandidateId] = useState(null);
 
   // Auto-Reset Countdown for in-person queue
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(1);
   const countdownIntervalRef = useRef(null);
 
   useEffect(() => {
@@ -254,7 +254,7 @@ const KioskPage = () => {
   };
 
   const startAutoResetCountdown = () => {
-    setCountdown(3);
+    setCountdown(1);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
 
     countdownIntervalRef.current = setInterval(() => {
@@ -262,7 +262,7 @@ const KioskPage = () => {
         if (prev <= 1) {
           clearInterval(countdownIntervalRef.current);
           resetBallot();
-          return 3;
+          return 1;
         }
         return prev - 1;
       });
@@ -275,6 +275,7 @@ const KioskPage = () => {
     setActivePosIdx(0);
     setLastVotedSummary('');
     setStatusMessage({ text: '', isError: false });
+    setCountdown(1);
     setKioskStep('ballot');
   };
 
@@ -352,7 +353,7 @@ const KioskPage = () => {
       </header>
 
       {/* Main Kiosk Viewport */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 flex flex-col justify-center">
+      <main className="flex-1 max-w-5xl xl:max-w-6xl w-full mx-auto p-4 sm:p-8 flex flex-col justify-center">
         {statusMessage.text && (
           <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
             statusMessage.isError 
@@ -369,34 +370,10 @@ const KioskPage = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass-panel p-6 sm:p-8 space-y-6"
+            className="glass-panel p-6 sm:p-10 space-y-8 rounded-3xl border border-white/[0.12] shadow-2xl"
           >
-            {/* Keypad Guidance Banner */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-indigo-500/15 border border-cyan-500/30 flex items-center justify-between gap-3 shadow-lg">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-cyan-400 text-slate-950 font-bold shadow-md">
-                  <Keyboard className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-heading font-bold text-white flex items-center gap-2">
-                    Press Designated Key to Vote in 1 Click
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      No Mouse Needed
-                    </span>
-                  </h4>
-                  <p className="text-xs text-slate-300">
-                    Press <span className="font-mono text-cyan-300 font-bold">[1]</span>, <span className="font-mono text-cyan-300 font-bold">[2]</span>, or <span className="font-mono text-cyan-300 font-bold">[A]</span>, <span className="font-mono text-cyan-300 font-bold">[B]</span> on keyboard (or tap card with finger/mouse).
-                  </p>
-                </div>
-              </div>
-              <div className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-cyan-300 bg-slate-950/70 px-3 py-1.5 rounded-xl border border-white/[0.08]">
-                <Zap className="w-3.5 h-3.5 text-yellow-400" />
-                <span>1-Stroke Vote</span>
-              </div>
-            </div>
-
             {/* Positions List */}
-            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="space-y-8 max-h-[72vh] overflow-y-auto pr-1.5">
               {positions.length === 0 ? (
                 <div className="text-center py-12 space-y-3">
                   <Lock className="w-8 h-8 text-slate-500 mx-auto" />
@@ -411,36 +388,36 @@ const KioskPage = () => {
                   return (
                     <div 
                       key={position._id} 
-                      className={`p-4 sm:p-5 rounded-2xl transition-all ${
+                      className={`p-6 sm:p-8 rounded-3xl transition-all ${
                         isPosActive 
-                          ? 'bg-slate-950/80 border-2 border-cyan-500/40 shadow-[0_0_24px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20' 
-                          : 'bg-slate-950/50 border border-white/[0.06] opacity-75'
+                          ? 'bg-slate-950/85 border-2 border-cyan-500/50 shadow-[0_0_32px_rgba(6,182,212,0.18)] ring-1 ring-cyan-500/30' 
+                          : 'bg-slate-950/50 border border-white/[0.08] opacity-75'
                       }`}
                     >
-                      <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5 mb-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <h4 className="text-base sm:text-lg font-heading font-bold text-white tracking-tight">
+                      <div className="flex items-center justify-between border-b border-white/[0.08] pb-4 mb-6">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-heading font-black text-white tracking-tight">
                             {position.name}
-                          </h4>
+                          </h3>
                           {positions.length > 1 && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-xs font-mono px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-white/[0.06]">
                               Position {pIdx + 1} of {positions.length}
                             </span>
                           )}
                         </div>
 
                         {selectedCandidates[position._id] ? (
-                          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Selected
+                          <span className="text-xs sm:text-sm font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-full font-semibold inline-flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5" /> Selected
                           </span>
                         ) : (
-                          <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                          <span className="text-xs sm:text-sm font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-1.5 rounded-full font-semibold">
                             {isPosActive ? 'Awaiting Keypress' : 'Pending'}
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                         {position.candidates?.map((candidate, cIdx) => {
                           const isSelected = selectedCandidates[position._id] === candidate._id;
                           const isFlashed = flashedCandidateId === candidate._id;
@@ -452,64 +429,73 @@ const KioskPage = () => {
                             <div
                               key={candidate._id}
                               onClick={() => handleCandidateAction(position, candidate)}
-                              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 select-none relative overflow-hidden group ${
+                              className={`p-5 sm:p-6 lg:p-7 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-5 select-none relative overflow-hidden group min-h-[170px] ${
                                 isFlashed
-                                  ? 'bg-cyan-400 text-slate-950 scale-[1.02] shadow-[0_0_32px_rgba(6,182,212,0.8)]'
+                                  ? 'bg-cyan-400 text-slate-950 scale-[1.02] shadow-[0_0_36px_rgba(6,182,212,0.85)]'
                                   : isSelected
-                                    ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.3)] ring-2 ring-cyan-400/50'
-                                    : 'bg-slate-900/80 hover:bg-slate-850 hover:border-cyan-500/40 border-white/[0.08] shadow-md hover:scale-[1.01]'
+                                    ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_24px_rgba(6,182,212,0.35)] ring-2 ring-cyan-400/50'
+                                    : 'bg-slate-900/90 hover:bg-slate-850 hover:border-cyan-400/60 border-white/[0.1] shadow-lg hover:shadow-cyan-500/10 hover:scale-[1.01]'
                               }`}
                             >
-                              {/* Designated EVM Keycap Badge */}
-                              <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-mono font-black flex-shrink-0 transition-all border shadow-inner ${
-                                isSelected
-                                  ? 'bg-cyan-400 text-slate-950 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)]'
-                                  : 'bg-gradient-to-b from-slate-800 to-slate-900 text-cyan-300 border-white/20 group-hover:border-cyan-400 group-hover:scale-105'
-                              }`}>
-                                <span className="text-xl leading-none">{hotkeyNumber}</span>
-                                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-sans mt-0.5">
-                                  {hotkeyLetter}
-                                </span>
-                              </div>
-
-                              {/* Candidate Photo / Avatar */}
-                              {candidate.photoUrl ? (
-                                <img
-                                  src={candidate.photoUrl}
-                                  alt={candidate.name}
-                                  className="w-12 h-12 rounded-xl object-cover border border-white/[0.1] flex-shrink-0 shadow-sm"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded-xl bg-slate-800 border border-white/[0.08] flex items-center justify-center font-heading font-extrabold text-cyan-300 flex-shrink-0 text-lg shadow-sm">
-                                  {initial}
-                                </div>
-                              )}
-
-                              {/* Candidate Identity */}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-heading font-bold text-base sm:text-lg text-white truncate leading-tight">
-                                  {candidate.name}
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <span className="text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 font-semibold">
-                                    Press {hotkeyNumber} or {hotkeyLetter}
+                              {/* Top Section: Keycap Badge + Candidate Photo/Avatar + Candidate Name */}
+                              <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+                                {/* Designated EVM Keycap Badge */}
+                                <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center font-mono font-black flex-shrink-0 transition-all border-2 shadow-inner ${
+                                  isSelected
+                                    ? 'bg-cyan-400 text-slate-950 border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.6)]'
+                                    : 'bg-gradient-to-b from-slate-800 to-slate-900 text-cyan-300 border-white/20 group-hover:border-cyan-400 group-hover:scale-105'
+                                }`}>
+                                  <span className="text-2xl sm:text-3xl leading-none font-black">{hotkeyNumber}</span>
+                                  <span className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-bold group-hover:text-cyan-300 mt-0.5">
+                                    {hotkeyLetter}
                                   </span>
                                 </div>
+
+                                {/* Candidate Photo / Avatar */}
+                                {candidate.photoUrl ? (
+                                  <img
+                                    src={candidate.photoUrl}
+                                    alt={candidate.name}
+                                    className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-2xl object-cover border-2 border-white/20 flex-shrink-0 shadow-md group-hover:border-cyan-400/50 transition-colors"
+                                  />
+                                ) : (
+                                  <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-cyan-500/30 flex items-center justify-center font-heading font-black text-cyan-300 flex-shrink-0 text-2xl sm:text-3xl shadow-md group-hover:border-cyan-400/60 group-hover:scale-105 transition-all">
+                                    {initial}
+                                  </div>
+                                )}
+
+                                {/* Candidate Full Name (Never Truncated) */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-white leading-tight group-hover:text-cyan-200 transition-colors uppercase tracking-wide break-words">
+                                    {candidate.name}
+                                  </div>
+                                  <div className="text-xs font-mono text-slate-400 mt-1 flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                                    <span>Candidate #{hotkeyNumber}</span>
+                                  </div>
+                                </div>
                               </div>
 
-                              {/* EVM-style Tap Indicator */}
-                              <div className="flex-shrink-0">
+                              {/* Bottom Action Bar: Keypad Hint Pill & Dedicated Vote Button */}
+                              <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-white/[0.08]">
+                                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-mono text-cyan-300 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/25 font-semibold shadow-sm">
+                                  <span>Press</span>
+                                  <span className="text-white font-black bg-cyan-500/25 px-1.5 py-0.5 rounded border border-cyan-400/40">{hotkeyNumber}</span>
+                                  <span>or</span>
+                                  <span className="text-white font-black bg-cyan-500/25 px-1.5 py-0.5 rounded border border-cyan-400/40">{hotkeyLetter}</span>
+                                </div>
+
                                 <button
                                   type="button"
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                                  className={`px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-md ${
                                     isSelected
-                                      ? 'bg-cyan-400 text-slate-950 shadow-md font-black'
-                                      : 'bg-slate-800 text-slate-300 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 border border-white/10'
+                                      ? 'bg-cyan-400 text-slate-950 shadow-[0_0_18px_rgba(6,182,212,0.5)] font-black'
+                                      : 'bg-slate-800 text-slate-200 group-hover:bg-cyan-400 group-hover:text-slate-950 border border-white/10 group-hover:border-cyan-400 group-hover:shadow-[0_0_18px_rgba(6,182,212,0.4)]'
                                   }`}
                                 >
                                   {isSelected ? (
                                     <>
-                                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                      <Check className="w-4 h-4 stroke-[3]" />
                                       <span>Voted</span>
                                     </>
                                   ) : (
@@ -528,9 +514,9 @@ const KioskPage = () => {
             </div>
 
             {/* Bottom Status / Review Bar */}
-            <div className="pt-3 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
+            <div className="pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm font-mono text-slate-400">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400 flex-shrink-0" />
                 <span>
                   {instantVoteMode 
                     ? 'Instant Mode Active: Touching any number or letter key immediately casts the vote.'
@@ -582,7 +568,7 @@ const KioskPage = () => {
               <span className="text-white font-bold text-base px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30">
                 {countdown}
               </span>
-              <span>seconds...</span>
+              <span>{countdown === 1 ? 'second...' : 'seconds...'}</span>
             </div>
 
             <button
