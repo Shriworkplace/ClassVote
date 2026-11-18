@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { usePageMeta } from '../utils/usePageMeta';
 
 const PrivacyPolicy = () => {
+  usePageMeta({
+    title: 'Privacy & Security Policy',
+    description: 'Learn how voter identity, secret ballots, and election integrity are protected on ClassVote.',
+    robots: 'index, follow'
+  });
   return (
     <div className="max-w-3xl mx-auto pb-24 px-4">
       {/* Back button */}

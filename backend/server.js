@@ -25,8 +25,8 @@ mongoose.set('sanitizeFilter', true);
 app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions()));
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+app.use(express.json({ limit: '512kb' }));
+app.use(express.urlencoded({ extended: false, limit: '512kb' }));
 app.use(mongoSanitize());
 app.use(cookieParser());
 
@@ -35,30 +35,75 @@ if (process.env.SERVE_FRONTEND === 'true') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));
 }
 
-// Serve uploaded photos statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded candidate photos statically with strict non-executable headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox");
+    }
+}));
 
+
+const Position = require('./models/Position');
+const EligibleVoter = require('./models/EligibleVoter');
+const Voter = require('./models/Voter');
+
+async function migrateLegacyIndexes() {
+    const drops = [
+        { model: Position, indexName: 'name_1' },
+        { model: EligibleVoter, indexName: 'email_1' },
+        { model: EligibleVoter, indexName: 'enrollmentNo_1' },
+        { model: Voter, indexName: 'email_1' },
+        { model: Voter, indexName: 'enrollmentNo_1' },
+    ];
+    for (const { model, indexName } of drops) {
+        try {
+            await model.collection.dropIndex(indexName);
+            console.log(`Dropped legacy global index ${indexName} on ${model.collection.name}`);
+        } catch {
+            // Index does not exist or already migrated
+        }
+    }
+    try {
+        await Promise.all([
+            Position.syncIndexes(),
+            EligibleVoter.syncIndexes(),
+            Voter.syncIndexes()
+        ]);
+    } catch (err) {
+        console.warn('Index sync warning:', err.message);
+    }
+}
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/classvote';
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
+    .then(async () => {
+        console.log('Connected to MongoDB');
+        await migrateLegacyIndexes();
+    })
     .catch(err => console.error('MongoDB connection error:', err));
 
 
-const apiRoutes = require('./routes/api')(io);
-const adminRoutes = require('./routes/admin')(io);
+const authRoutes = require('./routes/auth');
+const electionRoutes = require('./routes/elections')(io);
+const publicElectionRoutes = require('./routes/publicElection')(io);
+const { seoRouter, handleElectionSocialCard } = require('./routes/seo');
 
 // Health check endpoint for uptime monitoring (fast, no database)
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-app.use('/api/admin', adminRoutes);
-app.use('/api', apiRoutes);
+// Mount SEO routes: /robots.txt and /sitemap.xml
+app.use('/', seoRouter);
 
+app.use('/api/auth', authRoutes);
+app.use('/api/elections', electionRoutes);
+app.use('/api/e', publicElectionRoutes);
 
 // Catch-all route to serve the React app for any unknown paths (handles React Router)
 if (process.env.SERVE_FRONTEND === 'true') {
+    app.use(handleElectionSocialCard);
     app.use((req, res) => {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });

@@ -1,0 +1,17 @@
+# robots.txt for ClassVote
+User-agent: *
+Allow: /
+Allow: /entry
+Allow: /e/
+Allow: /signup
+Allow: /login
+Allow: /privacy-policy
+
+# Keep organizer workspaces, kiosks, and internal voting state private
+Disallow: /dashboard/
+Disallow: /dashboard
+Disallow: /e/*/kiosk
+Disallow: /e/*/voting
+Disallow: /api/
+
+Sitemap: /sitemap.xml

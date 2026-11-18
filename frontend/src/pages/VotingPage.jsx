@@ -1,46 +1,112 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Alert from '../components/Alert';
-import { Check, CheckCircle2, ChevronRight, User, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
+import { Check, CheckCircle2, ChevronRight, User, Loader2 } from 'lucide-react';
 import BallotReviewModal from '../components/BallotReviewModal';
 import { offlineVault } from '../utils/offlineVault';
+import { usePageMeta } from '../utils/usePageMeta';
 
 const VotingPage = () => {
+  const { slug } = useParams();
+  const [election, setElection] = useState(null);
   const [positions, setPositions] = useState([]);
   const [selections, setSelections] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  
+
   const navigate = useNavigate();
-  const voterName = sessionStorage.getItem('voterName');
-  const voterEmail = sessionStorage.getItem('voterEmail');
-  const voterEnrollmentNo = sessionStorage.getItem('voterEnrollmentNo');
+
+  usePageMeta({
+    title: election ? `Cast Ballot: ${election.title}` : 'Cast Secret Ballot',
+    description: 'Cast your verified secret ballot.',
+    robots: 'noindex, nofollow'
+  });
+
+  const savedSession = (() => {
+    if (slug) {
+      try {
+        const raw = sessionStorage.getItem(`voter_${slug}`);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+    return {
+      name: sessionStorage.getItem('voterName') || '',
+      email: sessionStorage.getItem('voterEmail') || '',
+      enrollmentNo: sessionStorage.getItem('voterEnrollmentNo') || ''
+    };
+  })();
+
+  const voterName = savedSession?.name || '';
+  const voterEmail = savedSession?.email || '';
+  const voterEnrollmentNo = savedSession?.enrollmentNo || '';
+
+  const clearVoterSession = () => {
+    if (slug) {
+      sessionStorage.removeItem(`voter_${slug}`);
+    } else {
+      sessionStorage.removeItem('voterName');
+      sessionStorage.removeItem('voterEmail');
+      sessionStorage.removeItem('voterEnrollmentNo');
+    }
+  };
 
   useEffect(() => {
     if (!voterName || (!voterEmail && !voterEnrollmentNo)) {
-      navigate('/entry');
+      navigate(slug ? `/e/${encodeURIComponent(slug)}` : '/entry');
       return;
     }
 
+    let socket = null;
+    const positionsEndpoint = slug ? `/api/e/${encodeURIComponent(slug)}/positions` : '/api/positions';
+
     const fetchPositions = async () => {
       try {
-        const res = await fetch('/api/positions');
-        const data = await res.json();
-        setPositions(data);
-      } catch (err) {
+        const res = await fetch(positionsEndpoint);
+        if (res.ok) {
+          setPositions(await res.json());
+        } else {
+          setError('Failed to load ballot.');
+        }
+      } catch {
         setError('Failed to load ballot.');
       }
     };
-    fetchPositions();
 
-    const socket = io();
-    socket.on('positions-updated', fetchPositions);
-    return () => socket.disconnect();
-  }, [navigate, voterName, voterEmail, voterEnrollmentNo]);
+    const init = async () => {
+      let electionId = null;
+      if (slug) {
+        try {
+          const elRes = await fetch(`/api/e/${encodeURIComponent(slug)}`);
+          if (elRes.ok) {
+            const elData = await elRes.json();
+            setElection(elData);
+            electionId = elData._id;
+          }
+        } catch {
+          // ignore metadata failure
+        }
+      }
+      await fetchPositions();
+
+      socket = io();
+      if (electionId) {
+        socket.emit('join-election', electionId);
+      }
+      socket.on('positions-updated', fetchPositions);
+    };
+
+    init();
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [navigate, slug, voterName, voterEmail, voterEnrollmentNo]);
 
   const handleSelect = (positionId, candidateId) => {
     setSelections(prev => {
@@ -83,15 +149,16 @@ const VotingPage = () => {
         selections: submission
       };
 
+      const voteEndpoint = slug ? `/api/e/${encodeURIComponent(slug)}/vote` : '/api/vote';
+
       if (!navigator.onLine) {
         // Offline vault fallback
         offlineVault.saveOfflineBallot({
           voter: { name: voterName, email: voterEmail, enrollmentNo: voterEnrollmentNo },
-          selections
+          selections,
+          electionSlug: slug || 'default'
         });
-        sessionStorage.removeItem('voterName');
-        sessionStorage.removeItem('voterEmail');
-        sessionStorage.removeItem('voterEnrollmentNo');
+        clearVoterSession();
         setIsReviewOpen(false);
         setSuccess('Offline Mode: Your ballot has been recorded securely in the local vault and will sync once internet is restored.');
         setSubmitted(true);
@@ -99,7 +166,7 @@ const VotingPage = () => {
         return;
       }
 
-      const res = await fetch('/api/vote', {
+      const res = await fetch(voteEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -107,9 +174,7 @@ const VotingPage = () => {
       const data = await res.json();
 
       if (res.ok) {
-        sessionStorage.removeItem('voterName');
-        sessionStorage.removeItem('voterEmail');
-        sessionStorage.removeItem('voterEnrollmentNo');
+        clearVoterSession();
         setIsReviewOpen(false);
         setSuccess(data.message || 'Your vote has been cast anonymously.');
         setSubmitted(true);
@@ -122,11 +187,10 @@ const VotingPage = () => {
       // If network fails during fetch, save offline
       offlineVault.saveOfflineBallot({
         voter: { name: voterName, email: voterEmail, enrollmentNo: voterEnrollmentNo },
-        selections
+        selections,
+        electionSlug: slug || 'default'
       });
-      sessionStorage.removeItem('voterName');
-      sessionStorage.removeItem('voterEmail');
-      sessionStorage.removeItem('voterEnrollmentNo');
+      clearVoterSession();
       setIsReviewOpen(false);
       setSuccess('Your ballot was saved to the offline vault and will sync when connection returns.');
       setSubmitted(true);
@@ -153,7 +217,7 @@ const VotingPage = () => {
           </div>
           
           <div className="badge-kicker !bg-emerald-500/10 !border-emerald-500/25 !text-emerald-300 mb-3">
-            <span>Official Confirmation</span>
+            <span>{election?.title || 'Official Confirmation'}</span>
           </div>
 
           <h2 className="text-3xl font-heading font-extrabold text-white mb-3 tracking-tight">
@@ -162,7 +226,10 @@ const VotingPage = () => {
           <p className="text-slate-300 text-base leading-relaxed mb-8 max-w-md mx-auto">
             {success || 'Thank you for participating! Your selections have been securely recorded in the election ledger.'}
           </p>
-          <button onClick={() => navigate('/results')} className="btn-primary px-8 py-3.5">
+          <button
+            onClick={() => navigate(slug ? `/e/${encodeURIComponent(slug)}/results` : '/results')}
+            className="btn-primary px-8 py-3.5"
+          >
             View Live Results
           </button>
         </motion.div>
@@ -181,7 +248,7 @@ const VotingPage = () => {
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2.5">
             <div className="badge-kicker">
-              <span>Verified Voter Session</span>
+              <span>{election?.title || 'Verified Voter Session'}</span>
             </div>
             {voterEnrollmentNo && (
               <span className="badge-neutral font-mono text-[11px] text-cyan-300 border-cyan-500/30">

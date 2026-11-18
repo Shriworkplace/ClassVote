@@ -5,10 +5,11 @@ import {
   AlertCircle, ChevronRight, ChevronLeft, Lock, Vote, 
   Volume2, VolumeX, Sparkles, Zap, Layers, LayoutList
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import BallotReviewModal from '../components/BallotReviewModal';
 import { offlineVault } from '../utils/offlineVault';
+import { usePageMeta } from '../utils/usePageMeta';
 
 const playEvmBeep = () => {
   try {
@@ -52,9 +53,17 @@ const playChime = () => {
 };
 
 const KioskPage = () => {
+  const { slug } = useParams();
+
+  usePageMeta({
+    title: 'In-Person EVM Kiosk Station',
+    description: 'Secured electronic voting machine kiosk terminal.',
+    robots: 'noindex, nofollow'
+  });
   const navigate = useNavigate();
 
   // Election Data
+  const [electionInfo, setElectionInfo] = useState(null);
   const [positions, setPositions] = useState([]);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
@@ -79,6 +88,8 @@ const KioskPage = () => {
   const advanceTimerRef = useRef(null);
   const positionRefs = useRef([]);
 
+  const electionSlugKey = slug || 'default';
+
   const resetBallot = useCallback(() => {
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     setSelectedCandidates({});
@@ -95,17 +106,57 @@ const KioskPage = () => {
     resetBallot();
   }, [resetBallot]);
 
+  const loadKioskPositions = useCallback(async () => {
+    const endpoint = slug ? `/api/e/${encodeURIComponent(slug)}/positions` : '/api/positions';
+    try {
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const loadedPositions = await res.json();
+        setPositions(loadedPositions);
+        offlineVault.cacheElectionData({ positions: loadedPositions, electionSlug: electionSlugKey });
+      } else {
+        const cached = offlineVault.getCachedElectionData(electionSlugKey);
+        if (cached.positions?.length > 0) setPositions(cached.positions);
+      }
+    } catch {
+      const cached = offlineVault.getCachedElectionData(electionSlugKey);
+      if (cached.positions?.length > 0) setPositions(cached.positions);
+    }
+  }, [slug, electionSlugKey]);
+
   useEffect(() => {
-    loadKioskPositions();
+    let socket = null;
+
+    const init = async () => {
+      let electionId = null;
+      if (slug) {
+        try {
+          const elRes = await fetch(`/api/e/${encodeURIComponent(slug)}`);
+          if (elRes.ok) {
+            const elData = await elRes.json();
+            setElectionInfo(elData);
+            electionId = elData._id;
+          }
+        } catch {
+          // offline
+        }
+      }
+      await loadKioskPositions();
+
+      socket = io();
+      if (electionId) {
+        socket.emit('join-election', electionId);
+      }
+      socket.on('positions-updated', loadKioskPositions);
+    };
+
+    init();
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    const socket = io();
-    socket.on('positions-updated', loadKioskPositions);
 
     const sTimer = statusTimerRef;
     const mTimer = successModalTimerRef;
@@ -114,12 +165,12 @@ const KioskPage = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      socket.disconnect();
+      if (socket) socket.disconnect();
       if (sTimer.current) clearTimeout(sTimer.current);
       if (mTimer.current) clearTimeout(mTimer.current);
       if (aTimer.current) clearTimeout(aTimer.current);
     };
-  }, []);
+  }, [slug, loadKioskPositions]);
 
   // Auto-scroll to active position when in 'all' view mode
   useEffect(() => {
@@ -127,24 +178,6 @@ const KioskPage = () => {
       positionRefs.current[activePosIdx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [activePosIdx, viewMode]);
-
-  const loadKioskPositions = async () => {
-    try {
-      const res = await fetch('/api/positions');
-      if (res.ok) {
-        const loadedPositions = await res.json();
-        setPositions(loadedPositions);
-        offlineVault.cacheElectionData({ positions: loadedPositions });
-      } else {
-        const cached = offlineVault.getCachedElectionData();
-        if (cached.positions?.length > 0) setPositions(cached.positions);
-      }
-    } catch {
-      // Offline fallback
-      const cached = offlineVault.getCachedElectionData();
-      if (cached.positions?.length > 0) setPositions(cached.positions);
-    }
-  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -159,6 +192,7 @@ const KioskPage = () => {
   };
 
   const submitBallot = useCallback(async (finalSelections) => {
+    const kioskVoteEndpoint = slug ? `/api/e/${encodeURIComponent(slug)}/kiosk-vote` : '/api/kiosk-vote';
     try {
       setIsSubmitting(true);
       if (soundEnabled) playEvmBeep();
@@ -169,22 +203,35 @@ const KioskPage = () => {
       }));
 
       if (navigator.onLine) {
-        const res = await fetch('/api/kiosk-vote', {
+        const res = await fetch(kioskVoteEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ selections: selectionsPayload })
         });
 
+        if (res.status === 401 || res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          setIsReviewOpen(false);
+          setStatusMessage({
+            text: errData.error || 'Booth authorization required or voting is closed.',
+            isError: true
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         if (!res.ok) {
           offlineVault.saveOfflineBallot({
             selections: finalSelections,
-            isKiosk: true
+            isKiosk: true,
+            electionSlug: electionSlugKey
           });
         }
       } else {
         offlineVault.saveOfflineBallot({
           selections: finalSelections,
-          isKiosk: true
+          isKiosk: true,
+          electionSlug: electionSlugKey
         });
       }
 
@@ -200,7 +247,8 @@ const KioskPage = () => {
     } catch {
       offlineVault.saveOfflineBallot({
         selections: finalSelections,
-        isKiosk: true
+        isKiosk: true,
+        electionSlug: electionSlugKey
       });
       setIsReviewOpen(false);
       setIsSuccessModalOpen(true);
@@ -212,7 +260,7 @@ const KioskPage = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [soundEnabled, handleDismissSuccess]);
+  }, [slug, electionSlugKey, soundEnabled, handleDismissSuccess]);
 
   const handleCandidateAction = useCallback((position, candidate) => {
     if (isSubmitting) return;
@@ -339,7 +387,7 @@ const KioskPage = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-heading font-bold text-white tracking-tight">
-                Voting Booth
+                {electionInfo?.title || 'Voting Booth'}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 uppercase font-semibold flex items-center gap-1">
                 <Zap className="w-3 h-3 text-cyan-400" /> 1-Click Keypad Active
@@ -414,7 +462,7 @@ const KioskPage = () => {
           </button>
 
           <button
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate(slug ? (electionInfo?._id ? `/dashboard/elections/${electionInfo._id}` : '/dashboard') : '/admin')}
             className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/[0.08] text-xs font-mono transition-colors"
           >
             Exit Booth

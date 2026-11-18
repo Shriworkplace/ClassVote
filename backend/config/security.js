@@ -29,7 +29,7 @@ function corsOptions() {
             return callback(new Error('Not allowed by CORS'));
         },
         credentials: true,
-        methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
     };
 }
@@ -54,8 +54,21 @@ function adminCookieClearOptions() {
     };
 }
 
+function authCookieOptions() {
+    return {
+        ...adminCookieBaseOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+}
+
+function authCookieClearOptions() {
+    return {
+        ...adminCookieBaseOptions,
+    };
+}
+
 function ensureRequiredEnv() {
-    const required = ['ADMIN_PASSWORD', 'JWT_SECRET'];
+    const required = ['JWT_SECRET'];
     const missing = required.filter((name) => !process.env[name]);
 
     if (missing.length > 0) {
@@ -66,6 +79,8 @@ function ensureRequiredEnv() {
 module.exports = {
     adminCookieOptions,
     adminCookieClearOptions,
+    authCookieOptions,
+    authCookieClearOptions,
     corsOptions,
     ensureRequiredEnv,
     socketCorsOptions,

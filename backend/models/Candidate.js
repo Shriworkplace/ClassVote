@@ -1,14 +1,22 @@
 const mongoose = require('mongoose');
 
 const candidateSchema = new mongoose.Schema({
+    electionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Election',
+        default: null,
+        index: true
+    },
     positionId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Position',
-        required: true
+        required: true,
+        index: true
     },
     name: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
     photoUrl: {
         type: String,

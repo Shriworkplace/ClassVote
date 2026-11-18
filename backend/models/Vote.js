@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 // Anonymous Secret Ballot: votes are decoupled from voter identity to protect voter privacy
 const voteSchema = new mongoose.Schema({
+    electionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Election',
+        default: null,
+        index: true
+    },
     positionId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Position',
@@ -20,7 +26,7 @@ const voteSchema = new mongoose.Schema({
     }
 });
 
-// Index for fast tallying
-voteSchema.index({ positionId: 1, candidateId: 1 });
+// Index for fast per-election tallying
+voteSchema.index({ electionId: 1, positionId: 1, candidateId: 1 });
 
 module.exports = mongoose.model('Vote', voteSchema);

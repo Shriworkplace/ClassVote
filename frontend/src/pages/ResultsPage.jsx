@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
-import { Trophy, Medal, Loader2, Info, Play, X, Radio, Award } from 'lucide-react';
+import { Trophy, Loader2, Info, Play, X, Radio, Award } from 'lucide-react';
 import Confetti from 'react-confetti';
+import { usePageMeta } from '../utils/usePageMeta';
 
 // A small component to animate the number counting up
 const Counter = ({ from, to, duration, delay }) => {
@@ -37,12 +39,22 @@ const Counter = ({ from, to, duration, delay }) => {
 };
 
 const ResultsPage = () => {
+  const { slug } = useParams();
+  const [electionInfo, setElectionInfo] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
   const [hasCounted, setHasCounted] = useState(false);
   const [winnersRevealed, setWinnersRevealed] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [windowDimensions, setWindowDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  usePageMeta({
+    title: electionInfo ? `Live Results: ${electionInfo.title}` : (slug ? `Results: ${slug}` : 'Election Results'),
+    description: electionInfo
+      ? `Live certified election results and real-time candidate vote tallies for ${electionInfo.title}${electionInfo.organization ? ` (${electionInfo.organization})` : ''}.`
+      : 'Real-time verified student election results and candidate standings on ClassVote.',
+    robots: 'index, follow'
+  });
 
   useEffect(() => {
     const handleResize = () => setWindowDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -51,32 +63,50 @@ const ResultsPage = () => {
   }, []);
 
   useEffect(() => {
+    let socket = null;
+    const endpoint = slug ? `/api/e/${encodeURIComponent(slug)}/results` : '/api/results';
+
     const fetchResults = async () => {
       try {
-        const res = await fetch('/api/results');
+        const res = await fetch(endpoint);
         const data = await res.json();
-        
+
         if (res.ok) {
-          setResults(data);
+          if (slug) {
+            setElectionInfo(data.election || null);
+            setResults(data.results || []);
+          } else {
+            setResults(data);
+          }
           setError('');
+          return slug ? data.election?._id : null;
         } else {
+          if (data.election) setElectionInfo(data.election);
           setResults(null);
           setError(data.error);
+          return data.election?._id || null;
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load results.');
+        return null;
       }
     };
 
-    fetchResults();
+    const init = async () => {
+      const electionId = await fetchResults();
+      socket = io();
+      if (electionId) {
+        socket.emit('join-election', electionId);
+      }
+      socket.on('results-updated', fetchResults);
+    };
 
-    const socket = io();
-    socket.on('results-updated', () => {
-      fetchResults();
-    });
+    init();
 
-    return () => socket.disconnect();
-  }, []);
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [slug]);
 
   if (error) {
     return (
@@ -85,6 +115,11 @@ const ResultsPage = () => {
            <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-5 text-slate-400 border border-white/[0.06]">
              <Info className="w-7 h-7" />
            </div>
+           {electionInfo?.title && (
+             <div className="badge-kicker mb-2">
+               <span>{electionInfo.title}</span>
+             </div>
+           )}
            <h2 className="text-2xl font-heading font-bold text-white mb-2 tracking-tight">Results Currently Unavailable</h2>
            <p className="text-slate-300 text-sm max-w-md leading-relaxed">{error}</p>
         </div>
@@ -107,11 +142,11 @@ const ResultsPage = () => {
       <div className="glass-panel text-center mb-10 relative overflow-hidden p-8 sm:p-14">
         <div className="badge-kicker mb-3 inline-flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Real-time Certified Tallies</span>
+          <span>{electionInfo?.organization || 'Real-time Certified Tallies'}</span>
         </div>
 
         <h2 className="text-3xl sm:text-5xl font-heading font-black tracking-tight text-white mb-3">
-          Election Standings
+          {electionInfo?.title || 'Election Standings'}
         </h2>
         <p className="text-slate-300 text-sm sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
           Tallies are synchronized directly with the database in real-time as student ballots are submitted.

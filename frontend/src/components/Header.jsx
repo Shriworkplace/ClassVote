@@ -1,50 +1,100 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, LogOut, LogIn, UserPlus, Hash } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <header className="sticky top-0 z-50 py-3 px-4 sm:px-8 mb-8 backdrop-blur-2xl bg-slate-950/75 border-b border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
         {/* Brand Logo & Title */}
-        <Link to="/" className="flex items-center gap-3.5 group">
+        <Link to="/" className="flex items-center gap-3 group">
           <div className="relative">
-            <img 
-              src="/logo.jpeg" 
-              alt="ClassVote Logo" 
-              className="w-11 h-11 object-contain rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] border border-cyan-400/30 group-hover:scale-105 group-hover:border-cyan-400/60 transition-all duration-300 bg-white"
+            <img
+              src="/logo.jpeg"
+              alt="ClassVote Logo"
+              className="w-10 h-10 sm:w-11 sm:h-11 object-contain rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] border border-cyan-400/30 group-hover:scale-105 group-hover:border-cyan-400/60 transition-all duration-300 bg-white"
             />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-heading font-extrabold text-2xl tracking-tight text-white group-hover:text-cyan-300 transition-colors">
+              <span className="font-heading font-extrabold text-xl sm:text-2xl tracking-tight text-white group-hover:text-cyan-300 transition-colors">
                 Class<span className="text-cyan-400 font-black">Vote</span>
               </span>
               <span className="hidden sm:inline-flex text-[10px] font-mono font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                Official
+                Platform
               </span>
             </div>
           </div>
         </Link>
 
-        {/* Navigation / Quick Actions */}
-        <nav className="flex items-center gap-2 sm:gap-4">
-          <Link 
-            to="/results" 
-            className={`text-xs sm:text-sm font-medium tracking-wide px-3.5 py-2 rounded-lg transition-colors ${
-              location.pathname === '/results'
+        {/* Navigation / Auth Actions */}
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <Link
+            to="/entry"
+            className={`text-xs sm:text-sm font-medium tracking-wide px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5 ${
+              location.pathname === '/entry'
                 ? 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/20'
                 : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
             }`}
           >
-            Live Results
+            <Hash className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Join Election</span>
+            <span className="sm:hidden">Join</span>
           </Link>
-          <Link 
-            to="/entry" 
-            className="text-xs sm:text-sm font-heading font-semibold tracking-wide bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-4 py-2 rounded-lg shadow-md shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all"
-          >
-            Vote Now
-          </Link>
+
+          {user ? (
+            <>
+              <Link
+                to="/dashboard"
+                className={`text-xs sm:text-sm font-heading font-semibold tracking-wide px-3.5 py-2 rounded-lg transition-all inline-flex items-center gap-1.5 ${
+                  location.pathname.startsWith('/dashboard')
+                    ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-md shadow-cyan-500/20'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>My Elections</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-slate-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
+                title={`Sign Out (${user.email})`}
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className={`text-xs sm:text-sm font-medium tracking-wide px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5 ${
+                  location.pathname === '/login'
+                    ? 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </Link>
+              <Link
+                to="/signup"
+                className="text-xs sm:text-sm font-heading font-semibold tracking-wide bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-3.5 sm:px-4 py-2 rounded-lg shadow-md shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all inline-flex items-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Get Started</span>
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>

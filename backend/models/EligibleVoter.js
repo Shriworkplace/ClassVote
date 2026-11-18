@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const eligibleVoterSchema = new mongoose.Schema({
+    electionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Election',
+        default: null,
+        index: true
+    },
     name: {
         type: String,
         required: true,
@@ -8,19 +14,23 @@ const eligibleVoterSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        unique: true,
-        sparse: true,
         lowercase: true,
         trim: true
     },
     enrollmentNo: {
         type: String,
-        unique: true,
-        sparse: true,
         uppercase: true,
         trim: true
     }
 });
 
-module.exports = mongoose.model('EligibleVoter', eligibleVoterSchema);
+eligibleVoterSchema.index(
+    { electionId: 1, email: 1 },
+    { unique: true, partialFilterExpression: { email: { $type: 'string' } } }
+);
+eligibleVoterSchema.index(
+    { electionId: 1, enrollmentNo: 1 },
+    { unique: true, partialFilterExpression: { enrollmentNo: { $type: 'string' } } }
+);
 
+module.exports = mongoose.model('EligibleVoter', eligibleVoterSchema);
