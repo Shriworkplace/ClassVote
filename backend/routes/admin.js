@@ -152,7 +152,8 @@ module.exports = function(io) {
                         candidateId: cand._id,
                         name: cand.name,
                         photoUrl: cand.photoUrl,
-                        votes: count
+                        votes: count,
+                        editHistory: cand.editHistory || []
                     });
                     totalVotesForPos += count;
                 }
@@ -406,8 +407,64 @@ module.exports = function(io) {
 
             const newCand = new Candidate({ positionId, name, photoUrl });
             await newCand.save();
+            io.emit('positions-updated');
+            io.emit('results-updated');
             res.json(newCand);
         } catch (err) {
+            res.status(500).json({ error: 'Server error' });
+        }
+    });
+
+    // Edit Candidate Name (preserves candidateId & cast votes, logs audit trail)
+    router.put('/candidates/:id', writeLimiter, async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { name } = req.body ?? {};
+
+            if (!isValidObjectId(id)) {
+                return res.status(400).json({ error: 'Invalid candidate ID' });
+            }
+
+            if (!isNonEmptyString(name, 120)) {
+                return res.status(400).json({ error: 'Candidate name is required (max 120 characters)' });
+            }
+
+            const trimmedName = toTrimmedString(name);
+            const candidate = await Candidate.findById(id);
+            if (!candidate) {
+                return res.status(404).json({ error: 'Candidate not found' });
+            }
+
+            const existingCandidates = await Candidate.find({
+                positionId: candidate.positionId
+            }).lean();
+
+            const hasDuplicate = existingCandidates.some(
+                (c) =>
+                    String(c._id) !== String(candidate._id) &&
+                    toTrimmedString(c.name).toLowerCase() === trimmedName.toLowerCase()
+            );
+            if (hasDuplicate) {
+                return res.status(400).json({ error: 'Another candidate with this name already exists for this position' });
+            }
+
+            if (candidate.name !== trimmedName) {
+                candidate.editHistory = candidate.editHistory || [];
+                candidate.editHistory.push({
+                    previousName: candidate.name,
+                    newName: trimmedName,
+                    editedAt: new Date()
+                });
+                candidate.name = trimmedName;
+                await candidate.save();
+
+                io.emit('positions-updated');
+                io.emit('results-updated');
+            }
+
+            res.json(candidate);
+        } catch (err) {
+            console.error(err);
             res.status(500).json({ error: 'Server error' });
         }
     });

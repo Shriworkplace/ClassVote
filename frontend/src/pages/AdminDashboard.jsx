@@ -6,7 +6,8 @@ import { Link } from 'react-router-dom';
 import Alert from '../components/Alert';
 import { 
   Lock, LogOut, Settings, Users, UserPlus, Clock, Trash2, Download, 
-  RefreshCw, Plus, FileSpreadsheet, Mail, Hash, User, AlertCircle, Monitor, ShieldCheck, CheckCircle2 
+  RefreshCw, Plus, FileSpreadsheet, Mail, Hash, User, AlertCircle, Monitor, ShieldCheck, CheckCircle2,
+  Pencil, Check, X
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { offlineVault } from '../utils/offlineVault';
@@ -46,6 +47,9 @@ const AdminDashboard = () => {
   const [candName, setCandName] = useState('');
   const [candPhoto, setCandPhoto] = useState('');
   const [candPhotoFile, setCandPhotoFile] = useState(null);
+  const [editingCandidateId, setEditingCandidateId] = useState(null);
+  const [editingCandidateName, setEditingCandidateName] = useState('');
+  const [isSavingCandidate, setIsSavingCandidate] = useState(false);
 
   // Schedule state
   const [startTime, setStartTime] = useState(null);
@@ -484,6 +488,46 @@ const AdminDashboard = () => {
       } catch (e) {
         showMessage('Error deleting position', true);
       }
+    }
+  };
+
+  const handleStartEditCandidate = (candidate) => {
+    setEditingCandidateId(candidate.candidateId);
+    setEditingCandidateName(candidate.name);
+  };
+
+  const handleCancelEditCandidate = () => {
+    setEditingCandidateId(null);
+    setEditingCandidateName('');
+  };
+
+  const handleSaveEditCandidate = async (candidateId) => {
+    const trimmed = editingCandidateName.trim();
+    if (!trimmed) {
+      showMessage('Candidate name cannot be empty', true);
+      return;
+    }
+
+    setIsSavingCandidate(true);
+    try {
+      const res = await fetch(`/api/admin/candidates/${candidateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMessage('Candidate name updated (existing votes preserved & logged)');
+        setEditingCandidateId(null);
+        setEditingCandidateName('');
+        loadDashboardData();
+      } else {
+        showMessage(data.error || 'Failed to update candidate name', true);
+      }
+    } catch {
+      showMessage('Error updating candidate name', true);
+    } finally {
+      setIsSavingCandidate(false);
     }
   };
 
@@ -1257,23 +1301,76 @@ const AdminDashboard = () => {
                   {pos.candidates.sort((a,b) => b.votes - a.votes).map(c => {
                     const percent = pos.totalVotes > 0 ? Math.round((c.votes / pos.totalVotes) * 100) : 0;
 
+                    const isEditing = editingCandidateId === c.candidateId;
+
                     return (
                       <div key={c.candidateId} className="flex flex-col items-center bg-slate-900/40 rounded-xl p-3 relative border border-white/[0.05] hover:border-cyan-500/30 transition-all group">
-                        <button 
-                          onClick={() => handleDeleteCandidate(c.candidateId)} 
-                          className="absolute top-1.5 right-1.5 text-red-400 hover:text-red-300 p-1 bg-slate-950/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" 
-                          title="Delete Candidate"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        {!isEditing && (
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              type="button"
+                              onClick={() => handleStartEditCandidate(c)} 
+                              className="text-cyan-400 hover:text-cyan-300 p-1 bg-slate-950/80 rounded-full border border-white/[0.08]" 
+                              title="Edit Candidate Name"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteCandidate(c.candidateId)} 
+                              className="text-red-400 hover:text-red-300 p-1 bg-slate-950/80 rounded-full border border-white/[0.08]" 
+                              title="Delete Candidate"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                         <img 
                           src={c.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=0d172e&color=22d3ee`} 
                           className="w-14 h-14 rounded-full object-cover mb-2 border border-white/[0.1]" 
                           alt={c.name} 
                         />
-                        <span className="text-slate-200 text-xs font-medium text-center line-clamp-2 min-h-[2rem] flex items-center font-heading">
-                          {c.name}
-                        </span>
+
+                        {isEditing ? (
+                          <div className="w-full space-y-1.5 mt-1">
+                            <input
+                              type="text"
+                              value={editingCandidateName}
+                              onChange={(e) => setEditingCandidateName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveEditCandidate(c.candidateId);
+                                if (e.key === 'Escape') handleCancelEditCandidate();
+                              }}
+                              disabled={isSavingCandidate}
+                              autoFocus
+                              maxLength={120}
+                              className="w-full px-2 py-1 text-xs text-center bg-slate-950 border border-cyan-400/60 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              placeholder="Candidate name"
+                            />
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditCandidate(c.candidateId)}
+                                disabled={isSavingCandidate}
+                                className="px-2 py-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono inline-flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3" /> Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEditCandidate}
+                                disabled={isSavingCandidate}
+                                className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 text-[10px] font-mono inline-flex items-center gap-1"
+                              >
+                                <X className="w-3 h-3" /> Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-200 text-xs font-medium text-center line-clamp-2 min-h-[2rem] flex items-center font-heading">
+                            {c.name}
+                          </span>
+                        )}
                         <span className="font-mono font-bold text-white text-xs mt-1.5 bg-slate-950 px-2.5 py-0.5 rounded-full border border-white/[0.08] tabular-nums">
                           {c.votes} votes {pos.totalVotes > 0 ? `(${percent}%)` : ''}
                         </span>

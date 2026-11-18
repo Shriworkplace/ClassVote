@@ -13,7 +13,14 @@ const candidateSchema = new mongoose.Schema({
     photoUrl: {
         type: String,
         default: ''
-    }
+    },
+    editHistory: [
+        {
+            previousName: { type: String, required: true },
+            newName: { type: String, required: true },
+            editedAt: { type: Date, default: Date.now }
+        }
+    ]
 });
 
 module.exports = mongoose.model('Candidate', candidateSchema);

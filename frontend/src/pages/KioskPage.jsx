@@ -6,6 +6,7 @@ import {
   Volume2, VolumeX, Sparkles, Zap, Layers, LayoutList
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import BallotReviewModal from '../components/BallotReviewModal';
 import { offlineVault } from '../utils/offlineVault';
 
@@ -103,6 +104,9 @@ const KioskPage = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const socket = io();
+    socket.on('positions-updated', loadKioskPositions);
+
     const sTimer = statusTimerRef;
     const mTimer = successModalTimerRef;
     const aTimer = advanceTimerRef;
@@ -110,6 +114,7 @@ const KioskPage = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      socket.disconnect();
       if (sTimer.current) clearTimeout(sTimer.current);
       if (mTimer.current) clearTimeout(mTimer.current);
       if (aTimer.current) clearTimeout(aTimer.current);

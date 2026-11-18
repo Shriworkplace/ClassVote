@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import Alert from '../components/Alert';
 import { Check, CheckCircle2, ChevronRight, User, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
@@ -35,6 +36,10 @@ const VotingPage = () => {
       }
     };
     fetchPositions();
+
+    const socket = io();
+    socket.on('positions-updated', fetchPositions);
+    return () => socket.disconnect();
   }, [navigate, voterName, voterEmail, voterEnrollmentNo]);
 
   const handleSelect = (positionId, candidateId) => {
