@@ -1,26 +1,86 @@
 const jwt = require('jsonwebtoken');
+const { getAuth, clerkClient } = require('@clerk/express');
 const Election = require('../models/Election');
+const User = require('../models/User');
 const { isValidObjectId } = require('../utils/validation');
 
-function requireAuth(req, res, next) {
-    const token = req.cookies?.auth_token;
-    if (!token) {
-        return res.status(401).json({ error: 'Authentication required. Please sign in.' });
-    }
-
+async function requireAuth(req, res, next) {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (!decoded?.userId) {
-            return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+        // 1. Check Clerk Authentication (from Bearer header, session cookie, or req.auth)
+        try {
+            const clerkAuth = getAuth(req);
+            if (clerkAuth && clerkAuth.userId) {
+                let user = await User.findOne({ clerkId: clerkAuth.userId });
+                if (!user) {
+                    try {
+                        const clerkUser = await clerkClient.users.getUser(clerkAuth.userId);
+                        const primaryEmail = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
+                                             clerkUser.emailAddresses?.[0]?.emailAddress;
+
+                        const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') ||
+                                         clerkUser.username ||
+                                         primaryEmail?.split('@')[0] ||
+                                         'Organizer';
+
+                        if (primaryEmail) {
+                            user = await User.findOne({ email: primaryEmail.toLowerCase() });
+                            if (user) {
+                                user.clerkId = clerkAuth.userId;
+                                user.authProvider = 'clerk';
+                                await user.save();
+                            }
+                        }
+
+                        if (!user && primaryEmail) {
+                            user = await User.create({
+                                clerkId: clerkAuth.userId,
+                                authProvider: 'clerk',
+                                email: primaryEmail.toLowerCase(),
+                                name: fullName,
+                                organization: ''
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Clerk user sync error:', err.message);
+                    }
+                }
+
+                if (user) {
+                    req.user = {
+                        userId: String(user._id),
+                        email: user.email,
+                        name: user.name,
+                        clerkId: clerkAuth.userId
+                    };
+                    return next();
+                }
+            }
+        } catch (clerkErr) {
+            // Not a Clerk request, continue to local cookie check
         }
-        req.user = {
-            userId: decoded.userId,
-            email: decoded.email,
-            name: decoded.name
-        };
-        next();
-    } catch {
-        return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+
+        // 2. Check Local HTTP-Only JWT Cookie
+        const token = req.cookies?.auth_token;
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                if (decoded?.userId) {
+                    req.user = {
+                        userId: decoded.userId,
+                        email: decoded.email,
+                        name: decoded.name
+                    };
+                    return next();
+                }
+            } catch {
+                // Token invalid or expired
+            }
+        }
+
+        return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+    } catch (err) {
+        console.error('requireAuth error:', err);
+        return res.status(500).json({ error: 'Authentication error' });
     }
 }
 

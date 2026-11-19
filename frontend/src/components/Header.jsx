@@ -1,16 +1,11 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut, LogIn, UserPlus, Hash } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, LogIn, UserPlus, Hash } from 'lucide-react';
+import { UserButton } from '@clerk/react';
 import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
+  const { user } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 py-3 px-4 sm:px-8 mb-8 backdrop-blur-2xl bg-slate-950/75 border-b border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
@@ -52,7 +47,7 @@ const Header = () => {
           </Link>
 
           {user ? (
-            <>
+            <div className="flex items-center gap-3">
               <Link
                 to="/dashboard"
                 className={`text-xs sm:text-sm font-heading font-semibold tracking-wide px-3.5 py-2 rounded-lg transition-all inline-flex items-center gap-1.5 ${
@@ -64,15 +59,15 @@ const Header = () => {
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 <span>My Elections</span>
               </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="p-2 rounded-lg text-slate-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
-                title={`Sign Out (${user.email})`}
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </>
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    avatarBox: 'w-9 h-9 border border-cyan-400/40 shadow-sm rounded-xl'
+                  }
+                }}
+              />
+            </div>
           ) : (
             <>
               <Link
@@ -88,7 +83,7 @@ const Header = () => {
               </Link>
               <Link
                 to="/signup"
-                className="text-xs sm:text-sm font-heading font-semibold tracking-wide bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-3.5 sm:px-4 py-2 rounded-lg shadow-md shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all inline-flex items-center gap-1.5"
+                className="hidden sm:inline-flex btn-primary px-3.5 py-2 text-xs font-semibold items-center gap-1.5"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Get Started</span>

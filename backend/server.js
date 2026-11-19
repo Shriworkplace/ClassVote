@@ -30,6 +30,9 @@ app.use(express.urlencoded({ extended: false, limit: '512kb' }));
 app.use(mongoSanitize());
 app.use(cookieParser());
 
+const { clerkMiddleware } = require('@clerk/express');
+app.use(clerkMiddleware());
+
 // Serve static files from the React app if SERVE_FRONTEND is set to true
 if (process.env.SERVE_FRONTEND === 'true') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));

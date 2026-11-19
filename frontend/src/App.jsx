@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ClerkProvider } from '@clerk/react';
+import { dark } from '@clerk/themes';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import EntryPage from './pages/EntryPage';
@@ -17,6 +19,10 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import NetworkStatusBadge from './components/NetworkStatusBadge';
 
+const CLERK_PUBLISHABLE_KEY =
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_bG92ZWQtbWFncGllLTYzNzEuY2xlcmsuYWNjb3VudHMuZGV2JA';
+
 function AppContent() {
   const location = useLocation();
   const isKiosk = location.pathname === '/kiosk' || location.pathname.endsWith('/kiosk');
@@ -29,8 +35,8 @@ function AppContent() {
       <main className={isCleanLayout ? 'w-full' : 'container mx-auto px-4 py-8'}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup/*" element={<SignUpPage />} />
+          <Route path="/login/*" element={<LoginPage />} />
           <Route path="/entry" element={<EntryPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
@@ -83,11 +89,34 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        baseTheme: dark,
+        variables: {
+          colorPrimary: '#06b6d4',
+          colorBackground: '#0b1329',
+          colorText: '#f8fafc',
+          colorTextSecondary: '#94a3b8',
+          colorInputBackground: '#060d1f',
+          colorInputText: '#f8fafc',
+          borderRadius: '16px'
+        },
+        elements: {
+          card: 'bg-slate-900/90 border border-white/10 shadow-2xl backdrop-blur-xl',
+          headerTitle: 'font-heading font-black text-white text-xl',
+          headerSubtitle: 'text-slate-400 text-xs',
+          formButtonPrimary: 'btn-primary py-2.5 text-sm font-semibold',
+          footerActionLink: 'text-cyan-400 hover:text-cyan-300'
+        }
+      }}
+    >
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ClerkProvider>
   );
 }
 

@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Vote, Users, BarChart3, Monitor, Copy, Check, Trash2,
-  Settings, ExternalLink, QrCode, X, Loader2, ShieldCheck, Globe, Lock, Sparkles
+  Settings, ExternalLink, QrCode, X, Loader2, ShieldCheck, Globe, Lock, Sparkles,
+  Shield, Smartphone
 } from 'lucide-react';
 import Alert from '../components/Alert';
+import TwoFactorSettingsModal from '../components/TwoFactorSettingsModal';
 import { useAuth } from '../context/AuthContext';
 import { usePageMeta } from '../utils/usePageMeta';
 
@@ -16,8 +18,9 @@ const ACCESS_MODE_LABELS = {
 };
 
 const DashboardHomePage = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [is2FAOpen, setIs2FAOpen] = useState(false);
 
   usePageMeta({
     title: 'Organizer Elections Hub',
@@ -195,6 +198,19 @@ const DashboardHomePage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIs2FAOpen(true)}
+            className={`px-3 py-2 text-xs rounded-xl border inline-flex items-center gap-1.5 transition-all ${
+              user?.twoFactorEnabled
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                : 'bg-slate-900/60 border-white/[0.08] text-slate-400 hover:text-slate-200'
+            }`}
+            title="Two-Factor Authentication Security"
+          >
+            <Shield className={`w-3.5 h-3.5 ${user?.twoFactorEnabled ? 'text-emerald-400' : 'text-slate-400'}`} />
+            <span>2FA: {user?.twoFactorEnabled ? 'Active' : 'Off'}</span>
+          </button>
           <button
             type="button"
             onClick={openProfileModal}
@@ -640,6 +656,35 @@ const DashboardHomePage = () => {
                     className="glass-input text-sm"
                   />
                 </div>
+
+                {/* Two-Factor Authentication Section */}
+                <div className="pt-3 border-t border-white/[0.06] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300">
+                      <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Two-Factor Authentication</span>
+                    </div>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
+                      user?.twoFactorEnabled
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-slate-800 text-slate-400 border-white/[0.08]'
+                    }`}>
+                      {user?.twoFactorEnabled ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      setIs2FAOpen(true);
+                    }}
+                    className="btn-secondary w-full py-2 text-xs inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{user?.twoFactorEnabled ? 'Manage 2FA Settings & Backup Codes' : 'Configure 2FA Authenticator'}</span>
+                  </button>
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setIsProfileOpen(false)} className="btn-secondary flex-1 py-2.5 text-xs">
                     Cancel
@@ -653,6 +698,14 @@ const DashboardHomePage = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 2FA SETTINGS MODAL */}
+      <TwoFactorSettingsModal
+        isOpen={is2FAOpen}
+        onClose={() => setIs2FAOpen(false)}
+        user={user}
+        onStatusChange={() => refreshUser()}
+      />
     </div>
   );
 };

@@ -1,258 +1,158 @@
 # ClassVote Architecture
 
-This document turns the current repository into a working mental model: what runs where, how requests move through the app, and how the voting workflow is supposed to behave.
+This document provides a comprehensive mental model of ClassVote: how requests move through the app, multi-tenant isolation, real-time socket voting, the security architecture, and organizer authentication (including Two-Factor Authentication).
+
+---
 
 ## 1. System Shape
 
-ClassVote is split into three layers:
+ClassVote is a modern, real-time, multi-tenant voting platform built for university classes, student councils, and team elections. It is divided into three layers:
 
-1. Frontend: React + Vite app in [frontend/src](frontend/src)
-2. Backend: Express + Mongoose API in [backend](backend)
-3. Database: MongoDB collections managed through Mongoose models
-
-The frontend handles the user interface and local navigation. The backend owns election state, roster validation, vote persistence, and live result broadcasting. MongoDB stores the durable election data.
+1. **Frontend**: React 19 + Vite application with Tailwind CSS, Lucide icons, Framer Motion, and HTML5 Web Audio EVM synthesis.
+2. **Backend**: Express 4 REST & SEO API with Socket.io room isolation, scrypt password hashing, and RFC 6238 TOTP Two-Factor Authentication.
+3. **Database**: MongoDB with Mongoose models organized around tenant isolation (`electionId` and `ownerId`).
 
 ```mermaid
-flowchart LR
-  Voter[Voter Browser] --> FE[React Frontend]
-  Admin[Admin Browser] --> FE
-  FE --> API[Express API]
-  API --> DB[(MongoDB)]
-  API <--> IO[Socket.io]
-  IO --> FE
+flowchart TD
+  subgraph Public & Voters
+    Voter[Voter Browser] -->|Verify & Vote| ScopedAPI[Public Election API /api/e/:slug]
+    Kiosk[In-Person Kiosk Station] -->|Dedicated Ballot Session| ScopedAPI
+    Embed[External Campus Sites / Blogs] -->|Embed Widget| EmbedAPI[GET /api/e/:slug/summary]
+  end
+
+  subgraph Organizers
+    Organizer[Organizer Browser] -->|Auth & 2FA / Password| AuthAPI[Auth API /api/auth]
+    Organizer -->|Manage Workspaces & Rosters| ElectionsAPI[Elections API /api/elections/:id]
+  end
+
+  subgraph Backend Core
+    AuthAPI --> Scrypt[Scrypt Hashing & RFC 6238 TOTP]
+    ScopedAPI --> DB[(MongoDB Atlas)]
+    ElectionsAPI --> DB
+    ScopedAPI <--> Sockets[Socket.io Room: election:id]
+    ElectionsAPI <--> Sockets
+    Sockets -->|Live Turnout & Results| Voter
+    Sockets -->|Live Turnout & Results| Organizer
+  end
 ```
 
-## 2. Repository Map
+---
 
-### Frontend
+## 2. Security & Authentication Architecture
 
-- [frontend/src/App.jsx](frontend/src/App.jsx): React Router entry point and page layout.
-- [frontend/src/pages/EntryPage.jsx](frontend/src/pages/EntryPage.jsx): voter identity check.
-- [frontend/src/pages/VotingPage.jsx](frontend/src/pages/VotingPage.jsx): candidate selection and ballot submission.
-- [frontend/src/pages/ResultsPage.jsx](frontend/src/pages/ResultsPage.jsx): public live results view.
-- [frontend/src/pages/AdminDashboard.jsx](frontend/src/pages/AdminDashboard.jsx): admin console for status, roster, positions, and live counts.
-- [frontend/src/components/Header.jsx](frontend/src/components/Header.jsx): shared header chrome.
-- [frontend/src/index.css](frontend/src/index.css): design system utilities and visual tokens.
+### Clerk Modern Authentication & Multi-Factor Security
 
-### Backend
+Organizer authentication is powered by **Clerk** ([clerk.com](https://clerk.com)) with hybrid synchronization to MongoDB:
 
-- [backend/server.js](backend/server.js): Express bootstrapping, Mongo connection, static asset serving, and route mounting.
-- [backend/socket.js](backend/socket.js): Socket.io server setup.
-- [backend/routes/api.js](backend/routes/api.js): student-facing API routes.
-- [backend/routes/admin.js](backend/routes/admin.js): admin-only API routes and auth.
-- [backend/models](backend/models): Mongoose schemas for positions, candidates, roster, voters, votes, and settings.
-
-## 3. Runtime Flow
-
-### Voter Flow
-
-1. Student opens `/entry`.
-2. The entry form posts `{ name, email, enrollmentNo }` to `POST /api/verify`.
-3. The backend checks `EligibleVoter` for matching `email` and `enrollmentNo`.
-4. The backend validates compulsory name matching against the registered student name.
-5. The backend verifies that neither this email nor enrollment number has already been used to vote.
-6. If allowed, the frontend stores the voter identity (`voterName`, `voterEmail`, `voterEnrollmentNo`) in `sessionStorage` and navigates to `/voting`.
-7. The voting page fetches `GET /api/positions`.
-8. The student selects one candidate per position.
-9. The page posts all selections along with student credentials to `POST /api/vote` in one request.
-10. The backend validates status, eligibility, compulsory name match, and duplicate voting, then writes the voter plus each ballot row.
-11. The backend emits `results-updated` over Socket.io.
-12. The voter sees confirmation, and any connected results view refreshes.
-
-### In-Person Kiosk & Offline Flow (`/kiosk`)
-
-1. Booth laptop/tablet opens `/kiosk` in full-screen station mode.
-2. Students queue up one-by-one; student or officer searches their Name or Enrollment Number from the roster.
-3. System verifies eligibility and confirms the student has not yet voted.
-4. Student enters private ballot mode, selects their candidates, and reviews choices in the Ballot Review Modal.
-5. Ballot is cast with strict anonymity (turnout attendance recorded in `Voter`, ballot choices decoupled in `Vote`).
-6. A success confirmation screen displays an automated 3-second countdown ring, automatically returning to the search queue for the next voter in line.
-7. If network connectivity drops, ballots are stored securely in the browser's persistent `offlineVault` (localStorage/IndexedDB) and can be synchronized to the database when connection is restored.
-
-### Results Flow
-
-1. Public results page calls `GET /api/results`.
-2. If results are not published, the backend returns a blocked response.
-3. If results are published, the frontend renders tallies grouped by position.
-4. Socket.io `results-updated` events trigger refetches so counts stay live.
-
-### Admin Flow
-
-1. Admin opens `/admin`.
-2. The dashboard posts the password to `POST /api/admin/login`.
-3. The backend issues an HTTP-only JWT cookie.
-4. Protected admin routes are then available for roster management (via dedicated Voter Form or CSV upload), position creation, candidate creation, settings changes, live result inspection, launching Kiosk mode, and syncing offline ballots.
-5. Admin can also reset votes or wipe the election session.
-
-## 4. Data Model
-
-The current schema is organized around six collections:
-
-### [Position](backend/models/Position.js)
-
-One election role such as Class Representative or Sports Coordinator.
-
-```js
-{ _id, name }
-```
-
-### [Candidate](backend/models/Candidate.js)
-
-One person running for one position.
-
-```js
-{ _id, positionId, name, photoUrl }
-```
-
-### [EligibleVoter](backend/models/EligibleVoter.js)
-
-The roster gate used before voting begins.
-
-```js
-{ _id, name, email, enrollmentNo }
-```
-
-### [Voter](backend/models/Voter.js)
-
-Tracks attendance / who has cast a ballot to prevent duplicate voting.
-
-```js
-{ _id, name, email, enrollmentNo, votedAt, channel }
-```
-
-### [Vote](backend/models/Vote.js)
-
-Anonymous secret ballot submissions. To enforce the democratic **Secret Ballot principle**, votes are strictly decoupled from voter identity (`voterId` is omitted). Administrators can see who voted, but cannot see who voted for whom.
-
-```js
-{ _id, positionId, candidateId, votedAt }
-```
-
-Compound indexing on `(positionId, candidateId)` provides fast tally counts. Duplicate voting is prevented at the voter level by unique constraints on `Voter` (`email` and `enrollmentNo`).
-
-### [Settings](backend/models/Settings.js)
-
-Global election switches.
-
-```js
-{ votingOpen, resultsPublished, scheduledStartTime, scheduledCloseTime }
-```
-
-## 5. API Surface
-
-### Student-facing
-
-- `POST /api/verify`: checks a voter against the eligible roster.
-- `GET /api/positions`: returns positions and their candidates.
-- `POST /api/vote`: stores a complete ballot.
-- `GET /api/results`: returns published public results only.
-- `GET /api/status`: returns election status.
-
-### Admin-facing
-
-- `POST /api/admin/login`
-- `POST /api/admin/logout`
-- `GET /api/admin/results`
-- `POST /api/admin/settings`
-- `POST /api/admin/roster`
-- `POST /api/admin/upload-roster`
-- `POST /api/admin/positions`
-- `POST /api/admin/candidates`
-- `DELETE /api/admin/votes`
-- `DELETE /api/admin/election`
-
-## 6. How the Current Code Is Wired
-
-### Frontend routing
-
-[frontend/src/App.jsx](frontend/src/App.jsx) wires the UI to four pages:
-
-- `/entry`
-- `/voting`
-- `/results`
-- `/admin`
-
-The root route redirects to `/entry`.
-
-### Frontend state boundaries
-
-- Entry page stores voter name and email in `sessionStorage`.
-- Voting page reads that session state to prevent direct access.
-- Results page listens for live updates over Socket.io.
-- Admin dashboard keeps its own login state and fetches protected endpoints after authentication.
-
-### Backend composition
-
-[backend/server.js](backend/server.js) does four things:
-
-1. Loads environment variables.
-2. Connects to MongoDB.
-3. Mounts student and admin routers.
-4. Serves the React build in production.
-
-[backend/socket.js](backend/socket.js) creates the Socket.io server and exposes it to both route modules.
-
-## 7. Workflow Diagram
+1. **Email OTP & Passwordless Login**: Automated high-deliverability 6-digit email codes sent by Clerk without requiring local SMTP setup.
+2. **1-Click Google Sign-In**: Organizers can sign in instantly using their personal or university Google accounts (`@college.edu`).
+3. **Turnkey 2FA & Biometrics**: Built-in Authenticator App (TOTP), SMS, and Passkeys (Touch ID, Face ID, Windows Hello).
+4. **Hybrid Database Sync**: When a user signs in via Clerk, the Express backend automatically verifies the session token and creates/links the organizer's profile in the MongoDB `User` collection. All elections and secret ballots are owned by the organizer's MongoDB identifier (`ownerId`).
+5. **Drop-in UI Components**:
+   - `<SignIn />` and `<SignUp />` on `/login` and `/signup` with dark glassmorphic styling matching ClassVote.
+   - `<UserButton />` in the top header with a self-service account management modal.
 
 ```mermaid
 sequenceDiagram
-  participant S as Student
-  participant F as Frontend
-  participant A as API
-  participant D as MongoDB
-  participant I as Socket.io
+  autonumber
+  actor O as Organizer
+  participant F as React Frontend
+  participant B as Express Backend
+  participant M as MongoDB
 
-  S->>F: Open /entry
-  F->>A: POST /api/verify
-  A->>D: Lookup EligibleVoter
-  D-->>A: Match or miss
-  A-->>F: Allow or deny
-  F->>A: GET /api/positions
-  A->>D: Load positions and candidates
-  D-->>A: Position data
-  A-->>F: Ballot payload
-  S->>F: Submit ballot
-  F->>A: POST /api/vote
-  A->>D: Save Voter and Votes
-  A->>I: Emit results-updated
-  I-->>F: Notify results pages
-  F->>A: Refetch /api/results or /api/admin/results
+  O->>F: Submit email & password
+  F->>B: POST /api/auth/login
+  B->>M: Lookup User by email
+  B->>B: Verify password via scrypt
+  alt 2FA is NOT enabled
+    B->>F: Set HTTP-only auth_token cookie & return user
+    F->>O: Redirect to /dashboard
+  else 2FA is enabled
+    B->>F: Return { requires2FA: true, twoFactorToken }
+    F->>O: Render 2FA challenge screen
+    O->>F: Enter 6-digit TOTP code or backup code
+    F->>B: POST /api/auth/login-2fa { twoFactorToken, code }
+    B->>B: Verify TOTP (RFC 6238) or unused backup code
+    B->>M: If backup code, mark code as used
+    B->>F: Set HTTP-only auth_token cookie & return user
+    F->>O: Redirect to /dashboard
+  end
 ```
 
-## 8. Operational Workflow
+---
 
-This is the practical order to run an election with the current codebase.
+## 3. Multi-Tenant Election Architecture
 
-1. Create positions.
-2. Add candidates for each position.
-3. Load the eligible voter roster.
-4. Confirm `votingOpen` is enabled.
-5. Share the entry URL or QR code.
-6. Monitor live counts from the admin dashboard.
-7. Publish results when ready.
-8. Close voting when the election ends.
-9. Export or inspect the final data if needed.
+Elections operate in completely isolated workspaces. An organizer can run multiple independent elections without cross-contamination.
 
-## 9. Implementation Notes
+### Access Modes
+Each election supports one of three access modes configured by the organizer:
+* **`roster` (Roster Verified)**: Voters must match a pre-registered student record in `EligibleVoter` (Name + Enrollment Number or Email) uploaded manually or via CSV.
+* **`open` (Open Link)**: Any student with a valid email or institutional ID can vote once. Duplicate prevention is enforced via unique indexes on `Voter`.
+* **`kiosk_only`**: Online voter entry is disabled; votes may only be cast through physical in-person voting terminals.
 
-- The backend provides admin login and roster management with cookie-based token authentication.
-- Scheduled start and close windows are supported in `Settings`, taking precedence over the manual toggle.
-- The frontend uses `sessionStorage` for voter identity verification handoff to `/voting`.
-- Public results are gated until published by the admin.
-- The QR flow in the admin dashboard encodes the site origin for instant voter access.
+### Secret Ballot Protection
+ClassVote strictly enforces the **Secret Ballot Principle**:
+* Attendance is recorded in the `Voter` collection (`{ electionId, name, email, votedAt }`) to prevent duplicate voting.
+* Ballot choices are stored in the decoupled `Vote` collection (`{ electionId, positionId, candidateId, votedAt }`) without any reference to voter identity.
+* Even administrators and organizers cannot see who voted for which candidate.
 
-## 10. Suggested Mental Model
+---
 
-If you want to understand the code quickly, read it in this order:
+## 4. Frontend Application Map
 
-1. [backend/server.js](backend/server.js)
-2. [backend/routes/api.js](backend/routes/api.js)
-3. [backend/routes/admin.js](backend/routes/admin.js)
-4. [backend/models](backend/models)
-5. [frontend/src/App.jsx](frontend/src/App.jsx)
-6. [frontend/src/pages/EntryPage.jsx](frontend/src/pages/EntryPage.jsx)
-7. [frontend/src/pages/VotingPage.jsx](frontend/src/pages/VotingPage.jsx)
-8. [frontend/src/pages/ResultsPage.jsx](frontend/src/pages/ResultsPage.jsx)
-9. [frontend/src/pages/AdminDashboard.jsx](frontend/src/pages/AdminDashboard.jsx)
+* [frontend/src/App.jsx](frontend/src/App.jsx): Main router with protected route gates and dynamic layouts.
+* [frontend/src/pages/LandingPage.jsx](frontend/src/pages/LandingPage.jsx): Public landing page with join code finder and organizer CTAs.
+* [frontend/src/pages/LoginPage.jsx](frontend/src/pages/LoginPage.jsx): Organizer sign-in with seamless 2-step TOTP challenge and backup code fallback.
+* [frontend/src/pages/SignUpPage.jsx](frontend/src/pages/SignUpPage.jsx): Organizer self-service registration.
+* [frontend/src/pages/DashboardHomePage.jsx](frontend/src/pages/DashboardHomePage.jsx): Organizer multi-election management hub, account settings, and 2FA configuration modal.
+* [frontend/src/pages/ElectionManagePage.jsx](frontend/src/pages/ElectionManagePage.jsx): Election console for live candidate inline editing, position management, CSV roster upload, turnout export, and widget embed snippet.
+* [frontend/src/pages/EntryPage.jsx](frontend/src/pages/EntryPage.jsx): Scoped voter portal (`/e/:slug`) for roster eligibility verification.
+* [frontend/src/pages/VotingPage.jsx](frontend/src/pages/VotingPage.jsx): Real-time secret ballot voting screen with candidate selection review.
+* [frontend/src/pages/ResultsPage.jsx](frontend/src/pages/ResultsPage.jsx): Certified live results tally with Socket.io streaming and winner celebration.
+* [frontend/src/pages/KioskPage.jsx](frontend/src/pages/KioskPage.jsx): Dedicated in-person EVM terminal with 0.5s auto-reset, single-position focus view, and sound synthesis.
+* [frontend/src/pages/ElectionEmbedWidget.jsx](frontend/src/pages/ElectionEmbedWidget.jsx): Compact, responsive iframe widget (`/e/:slug/embed`) with live turnout counts and organic backlink loop.
+* [frontend/src/components/TwoFactorSettingsModal.jsx](frontend/src/components/TwoFactorSettingsModal.jsx): Complete 2FA management modal (QR code scanner, manual key, code verification, backup codes generator, and disable workflow).
 
-That order follows the actual runtime path: server bootstrap, API behavior, persistence, then the user-facing screens.
+---
+
+## 5. API Surface
+
+### Authentication & 2FA (`/api/auth`)
+* `POST /api/auth/register`: Register new organizer account.
+* `POST /api/auth/login`: Authenticate with password (issues `twoFactorToken` if 2FA active).
+* `POST /api/auth/login-2fa`: Complete 2FA challenge with 6-digit TOTP or backup code.
+* `POST /api/auth/logout`: Clears session cookie.
+* `GET /api/auth/me`: Get current authenticated organizer profile.
+* `PUT /api/auth/profile`: Update organizer name, organization, or password.
+* `POST /api/auth/2fa/setup`: Generates pending secret & `otpauth://` QR URI.
+* `POST /api/auth/2fa/verify-enable`: Confirms 6-digit code, activates 2FA, and returns 8 backup codes.
+* `GET /api/auth/2fa/status`: Checks active status and remaining backup code counts.
+* `POST /api/auth/2fa/disable`: Disables 2FA with password + code confirmation.
+* `POST /api/auth/2fa/regenerate-backup-codes`: Generates 8 fresh recovery codes.
+
+### Organizer Election Console (`/api/elections`)
+* `GET /api/elections`: List organizer's elections.
+* `POST /api/elections`: Create new election workspace.
+* `GET /api/elections/:id`: Fetch election details and positions.
+* `PUT /api/elections/:id`: Update schedule, access mode, or title.
+* `DELETE /api/elections/:id`: Delete election and all associated ballots.
+* `POST /api/elections/:id/positions`: Create ballot position.
+* `POST /api/elections/:id/candidates`: Register candidate with optional photo.
+* `PUT /api/elections/:id/candidates/:candidateId`: Live inline candidate name edit without losing votes.
+* `POST /api/elections/:id/roster`: Add single student to roster.
+* `POST /api/elections/:id/upload-roster`: Bulk CSV roster ingestion.
+* `GET /api/elections/:id/turnout-export`: Neutralized CSV turnout log export.
+
+### Public Voter Portal (`/api/e/:slug`)
+* `GET /api/e/:slug`: Fetch public election metadata.
+* `GET /api/e/:slug/summary`: Lightweight turnout counts for embed widgets.
+* `POST /api/e/:slug/verify`: Verify student identity against roster.
+* `GET /api/e/:slug/positions`: Retrieve active positions and candidates.
+* `POST /api/e/:slug/vote`: Submit verified secret ballot.
+* `POST /api/e/:slug/kiosk-vote`: Submit physical kiosk ballot (organizer auth required).
+* `GET /api/e/:slug/results`: Fetch certified results if published.
+
+### SEO & Crawler Endpoints
+* `GET /robots.txt`: Host-aware search crawler indexing rules.
+* `GET /sitemap.xml`: Dynamic XML sitemap listing public elections and portals.

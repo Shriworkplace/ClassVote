@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
+    clerkId: {
+        type: String,
+        sparse: true,
+        unique: true,
+        trim: true
+    },
+    authProvider: {
+        type: String,
+        default: 'local' // 'clerk' | 'local'
+    },
     name: {
         type: String,
         required: true,
@@ -23,8 +33,26 @@ const userSchema = new mongoose.Schema({
     },
     passwordHash: {
         type: String,
-        required: true
+        default: null
     },
+    // Two-Factor Authentication
+    twoFactorEnabled: {
+        type: Boolean,
+        default: false
+    },
+    twoFactorSecret: {
+        type: String,
+        default: null
+    },
+    twoFactorPendingSecret: {
+        type: String,
+        default: null
+    },
+    twoFactorBackupCodes: [{
+        codeHash: { type: String, required: true },
+        used: { type: Boolean, default: false },
+        usedAt: { type: Date, default: null }
+    }],
     createdAt: {
         type: Date,
         default: Date.now
