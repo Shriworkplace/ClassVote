@@ -221,11 +221,10 @@ export default function TwoFactorSettingsModal({ isOpen, onClose, user, onStatus
         {/* VIEW: OVERVIEW */}
         {view === 'overview' && (
           <div className="space-y-5">
-            <div className={`p-4 rounded-2xl border flex items-start gap-3.5 ${
-              is2FAActive
-                ? 'bg-emerald-500/10 border-emerald-500/30'
-                : 'bg-slate-900/60 border-white/[0.08]'
-            }`}>
+            <div className={`p-4 rounded-2xl border flex items-start gap-3.5 ${is2FAActive
+              ? 'bg-emerald-500/10 border-emerald-500/30'
+              : 'bg-slate-900/60 border-white/[0.08]'
+              }`}>
               {is2FAActive ? (
                 <ShieldCheck className="w-6 h-6 text-emerald-400 flex-shrink-0 mt-0.5" />
               ) : (
@@ -236,11 +235,10 @@ export default function TwoFactorSettingsModal({ isOpen, onClose, user, onStatus
                   <h4 className="text-sm font-heading font-bold text-white">
                     {is2FAActive ? 'Two-Factor Authentication is Active' : '2FA is Currently Disabled'}
                   </h4>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
-                    is2FAActive
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                  }`}>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${is2FAActive
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}>
                     {is2FAActive ? 'PROTECTED' : 'NOT CONFIGURED'}
                   </span>
                 </div>
